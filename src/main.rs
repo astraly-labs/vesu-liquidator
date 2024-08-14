@@ -110,8 +110,7 @@ impl Position {
         let mut brw_price_to_dollar = get_dollar_price_from_pragma_api(self.debt_asset.name.to_lowercase()).await;
         let brw_state_to_dollar = brw_price_to_dollar.get_dollar_price(self.state.debt_amount, self.state.decimal);
 
-        let ltv_ratio = col_state_to_dollar / brw_state_to_dollar;
-        println!("ltv ratio is : {:?}", ltv_ratio);
+        self.state.ltv_ratio = brw_state_to_dollar / col_state_to_dollar;
     }
 }
 
