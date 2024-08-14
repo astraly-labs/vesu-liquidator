@@ -33,12 +33,23 @@ pub struct Asset{
     decimal: u32,
 }
 
-pub struct ApiPrice{
+pub struct PriceToDollar{
     price: Felt,
     decimal: u32,
 }
 
+impl PriceToDollar {
+    fn get_dollar_price(&mut self, mut amount : Felt, decimal: u32) -> U256{
+        if self.decimal > decimal {
+            amount = amount * Felt::from(10_u128.pow(self.decimal - decimal));
+        } else if self.decimal < decimal {
+            self.price = self.price * Felt::from(10_u128.pow(decimal - self.decimal));
+            self.decimal = decimal;
+        }
 
+        (U256::from(amount) * U256::from(self.price)) / U256::from(10_u128.pow(self.decimal))
+    }
+}
 
 impl Asset {
     fn new(address: Felt) -> Asset{
@@ -70,11 +81,7 @@ impl PositionState {
         PositionState {collateral_amount: raw_response[4],debt_amount: raw_response[6], decimal: 0, ltv_ratio : U256::from(0u32)}
     }
 
-    fn compute_ltv_ratio(&mut self){
-        let borrowed = U256::from(self.debt_amount);
-        let collateral = U256::from(self.collateral_amount);
-        self.ltv_ratio = collateral / borrowed;
-    }
+    
 }
 
 #[derive(Default,Clone, Hash, Eq, PartialEq,Debug)]
@@ -89,11 +96,22 @@ impl Position {
     fn adapt_decimal(&mut self){
         self.state.decimal = self.collateral_asset.decimal;
         if self.collateral_asset.decimal > self.debt_asset.decimal {
-            self.state.debt_amount = self.state.debt_amount * Felt::from(10 ^ (self.collateral_asset.decimal - self.debt_asset.decimal));
+            self.state.debt_amount = self.state.debt_amount * Felt::from(10_u128.pow(self.collateral_asset.decimal - self.debt_asset.decimal));
         } else if self.collateral_asset.decimal < self.debt_asset.decimal {
-            self.state.collateral_amount = self.state.collateral_amount * Felt::from(10 ^ (self.debt_asset.decimal - self.collateral_asset.decimal));
+            self.state.collateral_amount = self.state.collateral_amount * Felt::from(10_u128.pow(self.debt_asset.decimal - self.collateral_asset.decimal));
             self.state.decimal = self.debt_asset.decimal;
         }
+    }
+
+    async fn compute_ltv_ratio(&mut self){
+        let mut col_price_to_dollar = get_dollar_price_from_pragma_api(self.collateral_asset.name.to_lowercase()).await;
+        let col_state_to_dollar = col_price_to_dollar.get_dollar_price(self.state.collateral_amount, self.state.decimal);
+        
+        let mut brw_price_to_dollar = get_dollar_price_from_pragma_api(self.debt_asset.name.to_lowercase()).await;
+        let brw_state_to_dollar = brw_price_to_dollar.get_dollar_price(self.state.debt_amount, self.state.decimal);
+
+        let ltv_ratio = col_state_to_dollar / brw_state_to_dollar;
+        println!("ltv ratio is : {:?}", ltv_ratio);
     }
 }
 
@@ -123,8 +141,7 @@ async fn get_position(rpc_provider : &Arc<JsonRpcClient<HttpTransport>>, filtere
         let mut position = Position {pool_id: event.keys[1],collateral_asset,debt_asset, state: PositionState::default()};
         position.request_position_state(&rpc_provider, contract_address, event.keys).await;
         position.adapt_decimal();
-        get_dollar_price_from_pragma_api(String::from("strk")).await;
-        position.state.compute_ltv_ratio();
+        position.compute_ltv_ratio().await;
         position_per_users.entry(user_address)
                     .or_insert_with(HashSet::new)
                     .insert(position);
@@ -170,7 +187,7 @@ fn get_decimal_for_address(address: Felt) -> u32{
     }
 }
 
-async fn get_dollar_price_from_pragma_api(asset_name : String) -> ApiPrice {
+async fn get_dollar_price_from_pragma_api(asset_name : String) -> PriceToDollar {
     let pragma_oracle = PragmaOracle::default();
     let response = reqwest::Client::new()
         .get(pragma_oracle.get_fetch_url(String::from(asset_name), String::from("usd")))
@@ -178,7 +195,7 @@ async fn get_dollar_price_from_pragma_api(asset_name : String) -> ApiPrice {
         .send()
         .await.expect("failed to retrieve price from pragma api");
     let hr_resp = response.json::<OracleApiResponse>().await.expect("failed to serialize api result into struct");
-    ApiPrice {price : Felt::from_hex(hr_resp.price.as_str()).unwrap(), decimal : hr_resp.decimals}
+    PriceToDollar {price : Felt::from_hex(hr_resp.price.as_str()).unwrap(), decimal : hr_resp.decimals}
 }
 
 #[tokio::main]
