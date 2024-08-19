@@ -203,6 +203,7 @@ impl MonitoringService {
             BigDecimal::new(result[4].to_bigint(), position.collateral.decimals);
         position.debt.amount = BigDecimal::new(result[6].to_bigint(), position.debt.decimals);
 
+        // TODO: This should not change over time, find a way to fetch it only once
         let ltv_config_request = &FunctionCall {
             contract_address: VESU_SINGLETON_CONTRACT.to_owned(),
             entry_point_selector: VESU_LTV_CONFIG_SELECTOR.to_owned(),
