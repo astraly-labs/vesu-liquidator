@@ -1,3 +1,4 @@
+---
 name: Task - Build Rust
 
 on:
@@ -24,4 +25,4 @@ jobs:
 
       - name: Build the project
         run: |
-          cargo build --release --workspace
+          cargo build --release
