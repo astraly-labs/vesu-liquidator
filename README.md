@@ -2,7 +2,9 @@
 
 Liquidation bot for Vesu.
 
-### Requirements
+## Requirements
+
+### Protobuf
 
 In order to run the liquidator, you need the protoc Protocol Buffers compiler, along with Protocol Buffers resource files.
 
@@ -20,3 +22,7 @@ Assuming Homebrew is already installed.
 ```sh
 brew install protobuf
 ```
+
+### Environment Variables
+
+Create an `.env` file following the example file and fill the keys.
