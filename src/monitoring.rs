@@ -98,6 +98,8 @@ impl MonitoringService {
     }
 
     /// Update all monitored positions and check if it's worth to liquidate any.
+    /// TODO: Check issue for multicall update:
+    /// https://github.com/astraly-labs/vesu-liquidator/issues/12
     async fn update_and_monitor_health(&self) {
         println!("🔎 Checking if any position is liquidable...");
         if self.positions.is_empty().await {
