@@ -55,13 +55,13 @@ impl Position {
             collateral: Asset::try_from(event_keys[2])?,
             debt: Asset::try_from(event_keys[3])?,
             user_address: event_keys[4],
-            lltv: BigDecimal::from(0),
+            lltv: BigDecimal::default(),
         };
         Ok(position)
     }
 
     /// Computes & returns the LTV Ratio for a position.
-    pub async fn ltv_ratio(&self, pragma_oracle: &PragmaOracle) -> Result<BigDecimal> {
+    pub async fn ltv(&self, pragma_oracle: &PragmaOracle) -> Result<BigDecimal> {
         let collateral_as_dollars = pragma_oracle
             .get_dollar_price(self.collateral.name.to_lowercase())
             .await?;
@@ -76,11 +76,16 @@ impl Position {
 
     /// Check if a position is closed.
     pub fn is_closed(&self) -> bool {
-        self.collateral.amount == BigDecimal::from(0) && self.debt.amount == BigDecimal::from(0)
+        (self.collateral.amount == BigDecimal::from(0)) && (self.debt.amount == BigDecimal::from(0))
     }
 
-    /// Returns the position as a calldata.
-    pub fn as_calldata(&self) -> Vec<Felt> {
+    /// Returns the position as a calldata for the LTV config RPC call.
+    pub fn as_ltv_calldata(&self) -> Vec<Felt> {
+        vec![self.pool_id, self.collateral.address, self.debt.address]
+    }
+
+    /// Returns the position as a calldata for the Update Position RPC call.
+    pub fn as_update_calldata(&self) -> Vec<Felt> {
         vec![
             self.pool_id,
             self.collateral.address,
