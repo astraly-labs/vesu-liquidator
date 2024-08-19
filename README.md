@@ -1,3 +1,22 @@
 # Vesu-liquidator
 
-TODO : INDEXER DEPUIS APIBARA / check dipdup
+Liquidation bot for Vesu.
+
+### Requirements
+
+In order to run the liquidator, you need the protoc Protocol Buffers compiler, along with Protocol Buffers resource files.
+
+##### Ubuntu
+
+```sh
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y protobuf-compiler libprotobuf-dev
+```
+
+##### macOS
+
+Assuming Homebrew is already installed.
+
+```sh
+brew install protobuf
+```
