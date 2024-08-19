@@ -41,6 +41,7 @@ pub struct Position {
     pub pool_id: Felt,
     pub collateral: Asset,
     pub debt: Asset,
+    pub lltv: BigDecimal,
 }
 
 impl Position {
@@ -54,6 +55,7 @@ impl Position {
             collateral: Asset::try_from(event_keys[2])?,
             debt: Asset::try_from(event_keys[3])?,
             user_address: event_keys[4],
+            lltv: BigDecimal::from(0),
         };
         Ok(position)
     }
@@ -84,6 +86,31 @@ impl Position {
             self.collateral.address,
             self.debt.address,
             self.user_address,
+        ]
+    }
+}
+
+#[derive(Default, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct GetLTVConfigRequest {
+    pub pool_id: Felt,
+    pub collateral_asset_address: Felt,
+    pub debt_asset_address: Felt,
+}
+
+impl GetLTVConfigRequest {
+    pub fn try_from_event_keys(event_keys: &[Felt]) -> GetLTVConfigRequest {
+        GetLTVConfigRequest {
+            pool_id: event_keys[1],
+            collateral_asset_address: event_keys[2],
+            debt_asset_address: event_keys[3],
+        }
+    }
+
+    pub fn as_calldata(&self) -> Vec<Felt> {
+        vec![
+            self.pool_id,
+            self.collateral_asset_address,
+            self.debt_asset_address,
         ]
     }
 }

@@ -1,6 +1,7 @@
 vesu:
   position_unsafe_selector: "0x00ad73c50509760e79eb76f403619b0622dfe64ad5b307f489299f918afb8f9a"
-  modify_poisition_event: "0x3dfe6670b0f4e60f951b8a326e7467613b2470d81881ba2deb540262824f1e"
+  ltv_config_selector: "0x0239af5fa5cb958318bb362bbfdeb62ba623b36dbb081b6daa1b65564abc7b43"
+  modify_position_event: "0x3dfe6670b0f4e60f951b8a326e7467613b2470d81881ba2deb540262824f1e"
   mainnet:
     singleton_address: "0x02545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef"
     extension_address: "0x2334189e831d804d4a11d3f71d4a982ec82614ac12ed2e9ca2f8da4e6374fa"

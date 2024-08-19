@@ -2,6 +2,7 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 use bigdecimal::BigDecimal;
+use colored::Colorize;
 use starknet::{
     core::types::{BlockId, BlockTag, FunctionCall},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
@@ -12,7 +13,7 @@ use tokio::time::interval;
 use url::Url;
 
 use crate::{
-    config::{VESU_POSITION_UNSAFE_SELECTOR, VESU_SINGLETON_CONTRACT},
+    config::{VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR, VESU_SINGLETON_CONTRACT},
     oracle::PragmaOracle,
     types::Position,
 };
@@ -113,6 +114,52 @@ impl MonitoringService {
         println!("🤨 They're good.. for now...");
     }
 
+    #[allow(unused)]
+    async fn is_liquidable(&self, position: Position) -> bool {
+        let ltv_ratio = position
+            .ltv_ratio(&self.pragma_oracle)
+            .await
+            .expect("failed to retrieve ltv ratio");
+        let result = ltv_ratio > position.lltv;
+        println!(
+            "Position {}/{} of user {:?} is curently at ratio {:.2}%/{:.2}% => {}",
+            position.collateral.name,
+            position.debt.name,
+            position.user_address,
+            ltv_ratio * 100,
+            position.lltv * 100,
+            if result {
+                "is liquidable".green()
+            } else {
+                "is NOT liquidable".red()
+            }
+        );
+        result
+    }
+
+    #[allow(unused)]
+    async fn compute_profitability(&self, position: Position) -> BigDecimal {
+        let max_debt_in_dollar = position.collateral.amount
+            * position.lltv
+            * self
+                .pragma_oracle
+                .get_dollar_price(position.collateral.name)
+                .await
+                .unwrap();
+        let current_debt = position.debt.amount
+            * self
+                .pragma_oracle
+                .get_dollar_price(position.debt.name)
+                .await
+                .unwrap();
+        // +1 to be slighly under threshold
+        let amount_to_liquidate = current_debt - (max_debt_in_dollar + 1);
+        //TODO : get flashloan fees
+        let flashloan_fees = BigDecimal::from(0);
+
+        amount_to_liquidate - flashloan_fees
+    }
+
     /// Update all monitored positions
     async fn update_all_positions(&self) {
         if self.positions.is_empty().await {
@@ -146,6 +193,22 @@ impl MonitoringService {
         position.collateral.amount =
             BigDecimal::new(result[4].to_bigint(), position.collateral.decimals);
         position.debt.amount = BigDecimal::new(result[6].to_bigint(), position.debt.decimals);
+
+        let ltv_config_request = &FunctionCall {
+            contract_address: VESU_SINGLETON_CONTRACT.to_owned(),
+            entry_point_selector: VESU_LTV_CONFIG_SELECTOR.to_owned(),
+            calldata: position.as_calldata(),
+        };
+
+        // TODO: unsafe unwrap
+        let ltv_config = self
+            .rpc_client
+            .call(ltv_config_request, BlockId::Tag(BlockTag::Latest))
+            .await
+            .unwrap();
+        // TODO: decimals?
+        position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), 18);
+
         position
     }
 }
