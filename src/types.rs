@@ -1,9 +1,11 @@
 use anyhow::{anyhow, Result};
+use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::BigDecimal;
 use starknet::core::types::Felt;
 
 use crate::{
     config::{get_asset_name_for_address, get_decimal_for_address},
+    conversions::apibara_field_element_as_felt,
     oracle::PragmaOracle,
 };
 
@@ -12,7 +14,7 @@ pub struct Asset {
     pub name: String,
     pub address: Felt,
     pub amount: BigDecimal,
-    pub decimals: u32,
+    pub decimals: i64,
 }
 
 impl TryFrom<Felt> for Asset {
@@ -42,7 +44,11 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn try_from_event(event_keys: &[Felt]) -> Result<Position> {
+    pub fn try_from_event(event_keys: &[FieldElement]) -> Result<Position> {
+        let event_keys: Vec<Felt> = event_keys
+            .iter()
+            .map(apibara_field_element_as_felt)
+            .collect();
         let position = Position {
             pool_id: event_keys[1],
             collateral: Asset::try_from(event_keys[2])?,
@@ -66,35 +72,18 @@ impl Position {
             / (self.collateral.amount.clone() * collateral_as_dollars))
     }
 
+    /// Check if a position is closed.
     pub fn is_closed(&self) -> bool {
         self.collateral.amount == BigDecimal::from(0) && self.debt.amount == BigDecimal::from(0)
     }
-}
 
-#[derive(Default, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct GetPositionRequest {
-    pub user: Felt,
-    pub pool_id: Felt,
-    pub collateral_asset_address: Felt,
-    pub debt_asset_address: Felt,
-}
-
-impl GetPositionRequest {
-    pub fn try_from_event_keys(event_keys: &[Felt]) -> GetPositionRequest {
-        GetPositionRequest {
-            pool_id: event_keys[1],
-            collateral_asset_address: event_keys[2],
-            debt_asset_address: event_keys[3],
-            user: event_keys[4],
-        }
-    }
-
+    /// Returns the position as a calldata.
     pub fn as_calldata(&self) -> Vec<Felt> {
         vec![
             self.pool_id,
-            self.collateral_asset_address,
-            self.debt_asset_address,
-            self.user,
+            self.collateral.address,
+            self.debt.address,
+            self.user_address,
         ]
     }
 }

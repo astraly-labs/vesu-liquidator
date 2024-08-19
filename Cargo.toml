@@ -14,3 +14,7 @@ json = "0.12.4"
 bigdecimal = "0.4.5"
 lazy_static = "1.5.0"
 anyhow = "1.0.86"
+futures-util = "0.3.30"
+
+apibara-sdk = { git = "https://github.com/apibara/dna", branch = "main" }
+apibara-core = { git = "https://github.com/apibara/dna", branch = "main" }
