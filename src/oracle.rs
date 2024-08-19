@@ -12,7 +12,7 @@ pub const USD_ASSET: &str = "usd";
 #[derive(Deserialize, Debug)]
 pub struct OracleApiResponse {
     pub price: String,
-    pub decimals: u32,
+    pub decimals: i64,
 }
 
 #[derive(Debug, Clone)]
