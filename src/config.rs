@@ -31,7 +31,7 @@ pub struct NetworkConfig {
 pub struct Asset {
     pub name: String,
     pub ticker: String,
-    pub decimals: u32,
+    pub decimals: i64,
     pub mainnet_address: String,
     pub sepolia_address: String,
 }
@@ -63,6 +63,6 @@ pub fn get_asset_name_for_address(address: Felt) -> Option<String> {
     ASSET_MAP.get(&address).map(|asset| asset.ticker.clone())
 }
 
-pub fn get_decimal_for_address(address: Felt) -> Option<u32> {
+pub fn get_decimal_for_address(address: Felt) -> Option<i64> {
     ASSET_MAP.get(&address).map(|asset| asset.decimals)
 }
