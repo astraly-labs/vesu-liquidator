@@ -15,7 +15,7 @@ use url::Url;
 use crate::{
     config::{VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR, VESU_SINGLETON_CONTRACT},
     oracle::PragmaOracle,
-    types::Position,
+    types::position::Position,
 };
 
 // TODO: Should be a CLI arg

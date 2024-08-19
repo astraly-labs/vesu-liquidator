@@ -4,7 +4,7 @@ use anyhow::Result;
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
 
-use crate::conversions::hexa_price_to_big_decimal;
+use crate::utils::conversions::hexa_price_to_big_decimal;
 
 pub const DEV_API_URL: &str = "https://api.dev.pragma.build/node/v1/data/";
 pub const USD_ASSET: &str = "usd";

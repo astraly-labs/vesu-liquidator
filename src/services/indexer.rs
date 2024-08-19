@@ -1,7 +1,7 @@
 use crate::{
     config::{MODIFY_POSITION_EVENT, VESU_SINGLETON_CONTRACT},
-    conversions::{apibara_field_element_as_felt, felt_as_apibara_field_element},
-    types::Position,
+    types::position::Position,
+    utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field_element},
 };
 use apibara_core::{
     node::v1alpha2::DataFinality,

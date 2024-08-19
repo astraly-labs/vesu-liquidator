@@ -1,3 +1,9 @@
+pub mod config;
+pub mod oracle;
+pub mod services;
+pub mod types;
+pub mod utils;
+
 use std::env;
 use url::Url;
 
@@ -5,9 +11,9 @@ use anyhow::Result;
 
 use tokio::sync::mpsc;
 
-use vesu_liquidator::{
-    config::PUBLIC_MAINNET_RPC, indexer::IndexerService, monitoring::MonitoringService,
-    types::Position,
+use crate::{
+    config::PUBLIC_MAINNET_RPC, services::indexer::IndexerService,
+    services::monitoring::MonitoringService, types::position::Position,
 };
 
 #[tokio::main]
