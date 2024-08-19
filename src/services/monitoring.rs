@@ -77,6 +77,8 @@ impl MonitoringService {
         let mut update_interval = interval(Duration::from_secs(CHECK_POSITIONS_INTERVAL));
 
         loop {
+            // TODO: investigate thread behaviors, what happens when we check positions
+            //       + push a lot of new positions when indexing?
             tokio::select! {
                 _ = update_interval.tick() => {
                     self.update_and_monitor_health().await;
