@@ -104,6 +104,10 @@ impl MonitoringService {
             return;
         }
         self.update_all_positions().await;
+        // TODO: get LTV
+        // TODO: check health
+        // TODO: check if worth to liquidate if liquidable
+        // TODO: liquidate
         println!("🤨 They're good.. for now...");
     }
 
