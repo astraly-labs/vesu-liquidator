@@ -84,12 +84,9 @@ impl MonitoringService {
                 maybe_position = self.position_receiver.recv() => {
                     match maybe_position {
                         Some(position) => {
-                            if self.positions.insert(position).await {
-                                self.update_and_monitor_health().await;
-                            }
+                            self.positions.insert(position).await;
                         }
                         None => {
-                            println!("Position channel closed, exiting.");
                             break;
                         }
                     }
@@ -102,10 +99,10 @@ impl MonitoringService {
     /// TODO: Check issue for multicall update:
     /// https://github.com/astraly-labs/vesu-liquidator/issues/12
     async fn update_and_monitor_health(&self) {
-        println!("\n🔎 Checking if any position is liquidable...");
         if self.positions.is_empty().await {
             return;
         }
+        println!("\n🔎 Checking if any position is liquidable...");
         self.update_all_positions().await;
 
         for position in self.positions.0.lock().await.iter() {

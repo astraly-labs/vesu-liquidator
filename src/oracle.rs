@@ -5,7 +5,9 @@ use strum::Display;
 
 use crate::utils::conversions::hexa_price_to_big_decimal;
 
+// TODO: API URL should be a CLI arg
 pub const DEV_API_URL: &str = "https://api.dev.pragma.build/node/v1/data/";
+
 pub const USD_ASSET: &str = "usd";
 
 #[derive(Deserialize, Debug)]
@@ -30,6 +32,7 @@ impl PragmaOracle {
             api_url: DEV_API_URL.to_owned(),
             api_key,
             aggregation_method: AggregationMethod::Median,
+            // TODO: Assert that we want OneMinute
             interval: Interval::OneMinute,
         }
     }
