@@ -26,6 +26,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libprotobuf-dev
+          protoc --version
+
       - name: Run llvm-cov
         run: |
           cargo llvm-cov nextest --release --lcov --output-path lcov.info
