@@ -1,4 +1,5 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 
 use bigdecimal::BigDecimal;
 use starknet::{
@@ -19,11 +20,42 @@ use crate::{
 // TODO: Should be a CLI arg
 const CHECK_POSITIONS_INTERVAL: u64 = 10;
 
+// Thread-safe wrapper around HashSet
+pub struct Positions(Arc<Mutex<HashSet<Position>>>);
+
+impl Positions {
+    pub fn new() -> Self {
+        Self(Arc::new(Mutex::new(HashSet::new())))
+    }
+
+    pub async fn insert(&self, position: Position) -> bool {
+        self.0.lock().await.insert(position)
+    }
+
+    pub async fn is_empty(&self) -> bool {
+        self.0.lock().await.is_empty()
+    }
+
+    pub async fn drain(&self) -> Vec<Position> {
+        self.0.lock().await.drain().collect()
+    }
+
+    pub async fn len(&self) -> usize {
+        self.0.lock().await.len()
+    }
+}
+
+impl Default for Positions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct MonitoringService {
     pub rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     pub pragma_oracle: Arc<PragmaOracle>,
     pub position_receiver: Receiver<Position>,
-    pub positions: HashSet<Position>,
+    pub positions: Positions,
 }
 
 impl MonitoringService {
@@ -36,7 +68,7 @@ impl MonitoringService {
             rpc_client: Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url))),
             pragma_oracle: Arc::new(PragmaOracle::new(pragma_api_key)),
             position_receiver,
-            positions: HashSet::default(),
+            positions: Positions::new(),
         }
     }
 
@@ -46,18 +78,13 @@ impl MonitoringService {
         loop {
             tokio::select! {
                 _ = update_interval.tick() => {
-                    if !self.positions.is_empty() {
-                        println!("🔎 Checking if any position is liquidable...");
-                        self.update_all_positions().await;
-                        println!("🤨 They're good.. for now...");
-                        // TODO: handle liquidations...
-                    }
+                    self.update_and_monitor_health().await;
                 }
-                position = self.position_receiver.recv() => {
-                    match position {
+                maybe_position = self.position_receiver.recv() => {
+                    match maybe_position {
                         Some(position) => {
-                            if self.positions.insert(position) {
-                                println!("🥡 New position received! Monitoring {} positions...", self.positions.len());
+                            if self.positions.insert(position).await {
+                                self.update_and_monitor_health().await;
                             }
                         }
                         None => {
@@ -70,21 +97,31 @@ impl MonitoringService {
         }
     }
 
+    /// Update all monitored positions and check if it's worth to liquidate any.
+    async fn update_and_monitor_health(&self) {
+        println!("🔎 Checking if any position is liquidable...");
+        if self.positions.is_empty().await {
+            return;
+        }
+        self.update_all_positions().await;
+        println!("🤨 They're good.. for now...");
+    }
+
     /// Update all monitored positions
-    async fn update_all_positions(&mut self) {
-        if self.positions.is_empty() {
+    async fn update_all_positions(&self) {
+        if self.positions.is_empty().await {
             return;
         }
 
-        let positions: Vec<Position> = self.positions.drain().collect();
-        let mut updated_positions = HashSet::new();
+        let positions = self.positions.drain().await;
+        let updated_positions = Positions::new();
 
         for position in positions {
             let updated_position = self.update_position(position).await;
-            updated_positions.insert(updated_position);
+            updated_positions.insert(updated_position).await;
         }
 
-        self.positions = updated_positions;
+        *self.positions.0.lock().await = updated_positions.0.lock().await.clone();
     }
 
     /// Update a position given the latest data available.

@@ -23,10 +23,11 @@ pub struct IndexerService {
     uri: Uri,
     apibara_api_key: String,
     stream_config: Configuration<Filter>,
+    positions_sender: Sender<Position>,
 }
 
 impl IndexerService {
-    pub fn new(apibara_api_key: String) -> IndexerService {
+    pub fn new(apibara_api_key: String, positions_sender: Sender<Position>) -> IndexerService {
         // TODO: change if sepolia to https://sepolia.starknet.a5a.ch
         let uri: Uri = Uri::from_static("https://mainnet.starknet.a5a.ch");
 
@@ -50,11 +51,12 @@ impl IndexerService {
             uri,
             apibara_api_key,
             stream_config,
+            positions_sender,
         }
     }
 
     /// Retrieve all the ModifyPosition events emitted from the Vesu Singleton Contract.
-    pub async fn start(self, position_sender: Sender<Position>) -> ! {
+    pub async fn start(self) -> ! {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
         config_client.send(self.stream_config).await.unwrap();
 
@@ -95,7 +97,7 @@ impl IndexerService {
                                     }
                                     let new_position =
                                         Position::try_from_event(&event.keys).unwrap();
-                                    let _ = position_sender.try_send(new_position);
+                                    let _ = self.positions_sender.try_send(new_position);
                                 }
                             }
                         }
