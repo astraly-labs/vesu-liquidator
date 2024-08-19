@@ -1,1 +1,15 @@
 /target
+.idea
+.env
+db/
+infra/db/password.txt
+
+# Vscode settings
+.vscode
+
+# Vscode workspaces
+*.code-workspace
+
+# Indexer
+indexer.log
+run_indexer.sh
