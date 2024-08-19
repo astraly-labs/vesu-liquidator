@@ -34,6 +34,7 @@ impl IndexerService {
         let stream_config = Configuration::<Filter>::default()
             .with_starting_block(FROM_BLOCK)
             .with_finality(DataFinality::DataStatusPending)
+            // TODO: Filter does not seem to do anything. Done manually; investigate
             .with_filter(|mut filter| {
                 filter
                     .with_header(HeaderFilter::weak())

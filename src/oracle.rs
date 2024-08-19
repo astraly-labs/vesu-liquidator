@@ -1,8 +1,7 @@
-use std::fmt;
-
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 use crate::utils::conversions::hexa_price_to_big_decimal;
 
@@ -60,51 +59,35 @@ impl PragmaOracle {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, Display)]
 /// Supported Aggregation Methods
 pub enum AggregationMethod {
     #[serde(rename = "median")]
+    #[strum(serialize = "median")]
     #[default]
     Median,
     #[serde(rename = "mean")]
+    #[strum(serialize = "mean")]
     Mean,
+    #[strum(serialize = "twap")]
     #[serde(rename = "twap")]
     Twap,
 }
 
-impl fmt::Display for AggregationMethod {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            AggregationMethod::Median => "median",
-            AggregationMethod::Mean => "mean",
-            AggregationMethod::Twap => "twap",
-        };
-        write!(f, "{}", name)
-    }
-}
-
 /// Supported Aggregation Intervals
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, Display)]
 pub enum Interval {
     #[serde(rename = "1min")]
+    #[strum(serialize = "1min")]
     OneMinute,
     #[serde(rename = "15min")]
+    #[strum(serialize = "15min")]
     FifteenMinutes,
     #[serde(rename = "1h")]
+    #[strum(serialize = "1h")]
     OneHour,
     #[serde(rename = "2h")]
+    #[strum(serialize = "2h")]
     #[default]
     TwoHours,
-}
-
-impl fmt::Display for Interval {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            Interval::OneMinute => "1min",
-            Interval::FifteenMinutes => "15min",
-            Interval::OneHour => "1h",
-            Interval::TwoHours => "2h",
-        };
-        write!(f, "{}", name)
-    }
 }
