@@ -22,10 +22,10 @@ async fn main() -> Result<()> {
 
     let rpc_url: Url = PUBLIC_MAINNET_RPC.parse()?;
     let pragma_api_key: String = env::var("PRAGMA_API_KEY")?;
-    let monitoring_service = MonitoringService::new(rpc_url, pragma_api_key, position_receiver);
-
     let apibara_key: String = env::var("APIBARA_API_KEY")?;
+
     let indexer_service = IndexerService::new(apibara_key, positions_sender);
+    let monitoring_service = MonitoringService::new(rpc_url, pragma_api_key, position_receiver);
 
     // Index the available positions and sends them to the monitoring service
     let indexer_handle = tokio::spawn(async move {
