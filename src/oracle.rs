@@ -22,7 +22,6 @@ pub struct PragmaOracle {
     pub api_key: String,
     pub aggregation_method: AggregationMethod,
     pub interval: Interval,
-    pub price_bounds: PriceBounds,
 }
 
 impl PragmaOracle {
@@ -30,10 +29,9 @@ impl PragmaOracle {
         Self {
             http_client: reqwest::Client::new(),
             api_url: DEV_API_URL.to_owned(),
-            api_key: api_key.to_owned(),
+            api_key,
             aggregation_method: AggregationMethod::Median,
             interval: Interval::OneMinute,
-            price_bounds: Default::default(),
         }
     }
 }
@@ -66,11 +64,11 @@ impl PragmaOracle {
 /// Supported Aggregation Methods
 pub enum AggregationMethod {
     #[serde(rename = "median")]
+    #[default]
     Median,
     #[serde(rename = "mean")]
     Mean,
     #[serde(rename = "twap")]
-    #[default]
     Twap,
 }
 
@@ -108,20 +106,5 @@ impl fmt::Display for Interval {
             Interval::TwoHours => "2h",
         };
         write!(f, "{}", name)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PriceBounds {
-    pub low: u128,
-    pub high: u128,
-}
-
-impl Default for PriceBounds {
-    fn default() -> Self {
-        Self {
-            low: 0,
-            high: u128::MAX,
-        }
     }
 }
