@@ -83,6 +83,7 @@ impl MonitoringService {
                 _ = update_interval.tick() => {
                     self.update_and_monitor_health().await;
                 }
+                // TODO: implement logic to remove a position from the monitor list when it's closed
                 maybe_position = self.position_receiver.recv() => {
                     match maybe_position {
                         Some(position) => {
