@@ -1,46 +1,46 @@
 vesu:
-  position_unsafe_selector: '0x00ad73c50509760e79eb76f403619b0622dfe64ad5b307f489299f918afb8f9a'
-  modify_poisition_event: '0x3dfe6670b0f4e60f951b8a326e7467613b2470d81881ba2deb540262824f1e'
+  position_unsafe_selector: "0x00ad73c50509760e79eb76f403619b0622dfe64ad5b307f489299f918afb8f9a"
+  modify_poisition_event: "0x3dfe6670b0f4e60f951b8a326e7467613b2470d81881ba2deb540262824f1e"
   mainnet:
-    singleton_address: '0x2545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef'
-    extension_address: '0x2334189e831d804d4a11d3f71d4a982ec82614ac12ed2e9ca2f8da4e6374fa'
+    singleton_address: "0x2545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef"
+    extension_address: "0x2334189e831d804d4a11d3f71d4a982ec82614ac12ed2e9ca2f8da4e6374fa"
   sepolia:
-    singleton_address: '0x69d0eca40cb01eda7f3d76281ef524cecf8c35f4ca5acc862ff128e7432964b'
-    extension_address: '0x18e0277fef34ae5687da68b7810a04230a45ff9686068868528d2e07fae705d'
-  
+    singleton_address: "0x69d0eca40cb01eda7f3d76281ef524cecf8c35f4ca5acc862ff128e7432964b"
+    extension_address: "0x18e0277fef34ae5687da68b7810a04230a45ff9686068868528d2e07fae705d"
+
 assets:
-  - name: 'ethereum'
-    ticker: 'ETH'
+  - name: "ethereum"
+    ticker: "ETH"
     decimals: 18
-    mainnet_address: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7'
-    sepolia_address: ''
+    mainnet_address: "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+    sepolia_address: ""
 
-  - name: 'wrapped bitcoin'
-    ticker: 'WBTC'
+  - name: "wrapped bitcoin"
+    ticker: "WBTC"
     decimals: 8
-    mainnet_address: '0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac'
-    sepolia_address: ''
+    mainnet_address: "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac"
+    sepolia_address: ""
 
-  - name: 'circle usd'
-    ticker: 'USDC'
+  - name: "circle usd"
+    ticker: "USDC"
     decimals: 6
-    mainnet_address: '0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8'
-    sepolia_address: ''
+    mainnet_address: "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"
+    sepolia_address: ""
 
-  - name: 'tether usd'
-    ticker: 'USDT'
+  - name: "tether usd"
+    ticker: "USDT"
     decimals: 6
-    mainnet_address: '0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8'
-    sepolia_address: ''
+    mainnet_address: "0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8"
+    sepolia_address: ""
 
-  - name: 'wrapped lido staked ether'
-    ticker: 'WSTETH'
+  - name: "wrapped lido staked ether"
+    ticker: "WSTETH"
     decimals: 18
-    mainnet_address: '0x42b8f0484674ca266ac5d08e4ac6a3fe65bd3129795def2dca5c34ecc5f96d2'
-    sepolia_address: ''
+    mainnet_address: "0x42b8f0484674ca266ac5d08e4ac6a3fe65bd3129795def2dca5c34ecc5f96d2"
+    sepolia_address: ""
 
-  - name: 'starknet'
-    ticker: 'STRK'
+  - name: "starknet"
+    ticker: "STRK"
     decimals: 18
-    mainnet_address: '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
-    sepolia_address: ''
+    mainnet_address: "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
+    sepolia_address: ""

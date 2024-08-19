@@ -9,7 +9,7 @@ tokio = { version = "1.39.2", features = ["full"] }
 url = "2.5.2"
 serde = "1.0.207"
 serde_yaml = "0.9"
-reqwest = {version = "0.12.5", features = ["json"] }
+reqwest = { version = "0.12.5", features = ["json"] }
 json = "0.12.4"
 bigdecimal = "0.4.5"
 lazy_static = "1.5.0"
