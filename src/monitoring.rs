@@ -115,10 +115,9 @@ impl MonitoringService {
             self.is_liquidable(position).await;
         }
 
-        // TODO: get LTV
-        // TODO: check health
-        // TODO: check if worth to liquidate if liquidable
+        // TODO: check if worth to liquidate if liquidable (compute_profitability)
         // TODO: liquidate
+
         println!("🤨 They're good.. for now...");
     }
 
@@ -163,6 +162,7 @@ impl MonitoringService {
                 .unwrap();
         // +1 to be slighly under threshold
         let amount_to_liquidate = current_debt - (max_debt_in_dollar + 1);
+
         //TODO : get flashloan fees
         let flashloan_fees = BigDecimal::from(0);
 
