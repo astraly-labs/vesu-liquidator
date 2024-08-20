@@ -11,7 +11,7 @@ fn parse_str_to_felt(s: &str) -> Result<Felt> {
 pub struct AccountParams {
     /// Account address of the liquidator account
     #[clap(long, value_parser = parse_str_to_felt, value_name = "LIQUIDATOR ACCOUNT ADDRESS", requires = "private_key")]
-    pub account_address: Option<Felt>,
+    pub account_address: Felt,
 
     /// Private key of the liquidator account
     #[clap(long, value_parser = parse_str_to_felt, value_name = "LIQUIDATOR PRIVATE KEY", requires = "account_address")]
@@ -37,15 +37,14 @@ pub struct AccountParams {
 impl AccountParams {
     pub fn validate(&self) -> Result<()> {
         match (
-            &self.account_address,
             &self.private_key,
             &self.keystore_path,
             &self.keystore_password,
         ) {
-            (Some(_), Some(_), None, None) => Ok(()),
-            (None, None, Some(_), Some(_)) => Ok(()),
+            (Some(_), None, None) => Ok(()),
+            (None, Some(_), Some(_)) => Ok(()),
             _ => Err(
-                anyhow!("Missing liquidator account information. Use either (--account-address + --private-key) or (--keystore-path + --keystore-password).")
+                anyhow!("Missing liquidator account key. Use either (--private-key) or (--keystore-path + --keystore-password).")
             ),
         }
     }
