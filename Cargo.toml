@@ -2,19 +2,28 @@
 name = "vesu-liquidator"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+homepage = "https://pragma.build/"
+repository = "https://github.com/astraly-labs/Vesu-liquidator"
+description = "Liquidator bot for the Vesu Protocol"
+readme = "README.md"
+keywords = ["vesu", "liquidator", "bot", "starknet"]
 
 [dependencies]
+anyhow = "1.0.86"
+bigdecimal = "0.4.5"
+colored = "2.1.0"
+dotenvy = "0.15.7"
+futures-util = "0.3.30"
+lazy_static = "1.5.0"
+reqwest = { version = "0.12.5", features = ["json"] }
+serde = "1.0.207"
+serde_json = "1.0.125"
+serde_yaml = "0.9"
 starknet = "0.11.0"
+strum = { version = "0.26", features = ["derive"] }
 tokio = { version = "1.39.2", features = ["full"] }
 url = "2.5.2"
-serde = "1.0.207"
-serde_yaml = "0.9"
-reqwest = { version = "0.12.5", features = ["json"] }
-json = "0.12.4"
-bigdecimal = "0.4.5"
-lazy_static = "1.5.0"
-anyhow = "1.0.86"
-futures-util = "0.3.30"
 
-apibara-sdk = { git = "https://github.com/apibara/dna", branch = "main" }
 apibara-core = { git = "https://github.com/apibara/dna", branch = "main" }
+apibara-sdk = { git = "https://github.com/apibara/dna", branch = "main" }

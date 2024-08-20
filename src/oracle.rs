@@ -1,18 +1,19 @@
-use std::fmt;
-
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
-use crate::conversions::hexa_price_to_big_decimal;
+use crate::utils::conversions::hexa_price_to_big_decimal;
 
+// TODO: API URL should be a CLI arg
 pub const DEV_API_URL: &str = "https://api.dev.pragma.build/node/v1/data/";
+
 pub const USD_ASSET: &str = "usd";
 
 #[derive(Deserialize, Debug)]
 pub struct OracleApiResponse {
     pub price: String,
-    pub decimals: u32,
+    pub decimals: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -31,6 +32,7 @@ impl PragmaOracle {
             api_url: DEV_API_URL.to_owned(),
             api_key,
             aggregation_method: AggregationMethod::Median,
+            // TODO: Assert that we want OneMinute
             interval: Interval::OneMinute,
         }
     }
@@ -52,7 +54,12 @@ impl PragmaOracle {
             .header("x-api-key", &self.api_key)
             .send()
             .await?;
-        let oracle_response = response.json::<OracleApiResponse>().await?;
+        if response.status() != 200 {
+            println!("⛔ Oracle Request failed with: {:?}", response.text().await);
+            panic!("Exiting.");
+        }
+        let response_text = response.text().await?;
+        let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
         Ok(hexa_price_to_big_decimal(
             oracle_response.price.as_str(),
             oracle_response.decimals,
@@ -60,51 +67,35 @@ impl PragmaOracle {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, Display)]
 /// Supported Aggregation Methods
 pub enum AggregationMethod {
     #[serde(rename = "median")]
+    #[strum(serialize = "median")]
     #[default]
     Median,
     #[serde(rename = "mean")]
+    #[strum(serialize = "mean")]
     Mean,
+    #[strum(serialize = "twap")]
     #[serde(rename = "twap")]
     Twap,
 }
 
-impl fmt::Display for AggregationMethod {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            AggregationMethod::Median => "median",
-            AggregationMethod::Mean => "mean",
-            AggregationMethod::Twap => "twap",
-        };
-        write!(f, "{}", name)
-    }
-}
-
 /// Supported Aggregation Intervals
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, Display)]
 pub enum Interval {
     #[serde(rename = "1min")]
+    #[strum(serialize = "1min")]
     OneMinute,
     #[serde(rename = "15min")]
+    #[strum(serialize = "15min")]
     FifteenMinutes,
     #[serde(rename = "1h")]
+    #[strum(serialize = "1h")]
     OneHour,
     #[serde(rename = "2h")]
+    #[strum(serialize = "2h")]
     #[default]
     TwoHours,
-}
-
-impl fmt::Display for Interval {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            Interval::OneMinute => "1min",
-            Interval::FifteenMinutes => "15min",
-            Interval::OneHour => "1h",
-            Interval::TwoHours => "2h",
-        };
-        write!(f, "{}", name)
-    }
 }

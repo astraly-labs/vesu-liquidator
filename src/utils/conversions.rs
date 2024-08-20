@@ -1,26 +1,13 @@
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
-use starknet::core::types::Felt;
+use starknet::core::types::{Felt, U256};
 
-pub fn hexa_price_to_big_decimal(hex_price: &str, decimals: u32) -> BigDecimal {
+/// Converts an hexadecimal string with decimals to BigDecimal.
+pub fn hexa_price_to_big_decimal(hex_price: &str, decimals: i64) -> BigDecimal {
     let cleaned_hex = hex_price.trim_start_matches("0x");
     let price_bigint = BigInt::parse_bytes(cleaned_hex.as_bytes(), 16).unwrap();
-    BigDecimal::new(price_bigint, decimals as i64)
-}
-
-pub fn normalize_to_decimals(
-    value: BigDecimal,
-    original_decimals: u32,
-    target_decimals: u32,
-) -> BigDecimal {
-    if target_decimals >= original_decimals {
-        let power = BigDecimal::from(10_i64.pow(target_decimals - original_decimals));
-        value * power
-    } else {
-        let power = BigDecimal::from(10_i64.pow(original_decimals - target_decimals));
-        value / power
-    }
+    BigDecimal::new(price_bigint, decimals)
 }
 
 /// Converts a Felt element from starknet-rs to a FieldElement from Apibara-core.
@@ -31,4 +18,9 @@ pub fn felt_as_apibara_field_element(value: &Felt) -> FieldElement {
 /// Converts an Apibara core FieldElement into a Felt from starknet-rs.
 pub fn apibara_field_element_as_felt(value: &FieldElement) -> Felt {
     Felt::from_bytes_be(&value.to_bytes())
+}
+
+pub fn big_decimal_to_u256(value: BigDecimal) -> U256 {
+    let (amount, _): (BigInt, _) = value.as_bigint_and_exponent();
+    U256::from(Felt::from(amount.clone()))
 }
