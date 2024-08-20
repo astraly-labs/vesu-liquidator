@@ -22,6 +22,32 @@ pub struct StarknetAccount(
 // - the chain
 // - the method of creation (keystore, raw key...)
 impl StarknetAccount {
+    /// Creates a StarknetAccount from the CLI args
+    pub fn from_cli(
+        rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+        run_cmd: RunCmd,
+    ) -> Result<StarknetAccount> {
+        let mut builder = StarknetAccountBuilder::default();
+
+        builder = match run_cmd.network {
+            NetworkName::Mainnet => builder.on_mainnet(),
+            NetworkName::Sepolia => builder.on_sepolia(),
+        };
+
+        builder = builder
+            .as_account(run_cmd.account_params.account_address)
+            .with_provider(rpc_client);
+
+        if let Some(private_key) = run_cmd.account_params.private_key {
+            builder.from_secret(private_key)
+        } else {
+            builder.from_keystore(
+                run_cmd.account_params.keystore_path.unwrap(),
+                &run_cmd.account_params.keystore_password.unwrap(),
+            )
+        }
+    }
+
     /// Returns the account_address of the Account.
     pub fn account_address(&self) -> Felt {
         self.0.address()
@@ -51,31 +77,6 @@ pub struct StarknetAccountBuilder {
 impl StarknetAccountBuilder {
     pub fn new() -> Self {
         StarknetAccountBuilder::default()
-    }
-
-    pub fn from_cli(
-        rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-        run_cmd: RunCmd,
-    ) -> Result<StarknetAccount> {
-        let mut builder = StarknetAccountBuilder::default();
-
-        builder = match run_cmd.network {
-            NetworkName::Mainnet => builder.on_mainnet(),
-            NetworkName::Sepolia => builder.on_sepolia(),
-        };
-
-        builder = builder
-            .as_account(run_cmd.account_params.account_address)
-            .with_provider(rpc_client);
-
-        if let Some(private_key) = run_cmd.account_params.private_key {
-            builder.from_secret(private_key)
-        } else {
-            builder.from_keystore(
-                run_cmd.account_params.keystore_path.unwrap(),
-                &run_cmd.account_params.keystore_password.unwrap(),
-            )
-        }
     }
 
     pub fn on_mainnet(mut self) -> Self {
