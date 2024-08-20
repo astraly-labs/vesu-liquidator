@@ -28,7 +28,7 @@ use crate::{
 // Constants for execution.
 // Only for testing purposes.
 // TODO: Should be CLI args.
-const FROM_BLOCK: u64 = 660_220;
+const FROM_BLOCK: u64 = 669_814;
 
 const INDEXING_STREAM_CHUNK_SIZE: usize = 128;
 

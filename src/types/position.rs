@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use apibara_core::starknet::v1alpha2::FieldElement;
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, ToPrimitive};
 use colored::Colorize;
-use starknet::{accounts::Call, core::types::Felt};
+use starknet::core::types::{Call, Felt, U256};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -152,21 +152,24 @@ impl Position {
         amount_to_liquidate: BigDecimal,
     ) -> Vec<Call> {
         // https://docs.vesu.xyz/dev-guides/singleton#flash_loan
-        let flash_loan_call = Call {
-            to: VESU_SINGLETON_CONTRACT.to_owned(),
-            selector: FLASH_LOAN_SELECTOR.to_owned(),
-            calldata: vec![
-                liquidator_address,                       // receiver
-                self.debt.address,                        // asset
-                Felt::from(amount_to_liquidate.digits()), // amount
-                Felt::ZERO,                               // is_legacy
-                Felt::ZERO,                               // data (?)
-            ],
-        };
+        // TODO: Won't work without a custom contract with a on_flash_loan function
+        // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
+        // let flash_loan_call = Call {
+        //     to: VESU_SINGLETON_CONTRACT.to_owned(),
+        //     selector: FLASH_LOAN_SELECTOR.to_owned(),
+        //     calldata: vec![
+        //         liquidator_address,                       // receiver
+        //         self.debt.address,                        // asset
+        //         Felt::from(amount_to_liquidate.digits()), // amount
+        //         Felt::ZERO,                               // is_legacy
+        //     ],
+        // };
 
+        let (amount, _) = amount_to_liquidate.as_bigint_and_exponent();
+        let debt_to_repay = U256::from(amount.to_u128().unwrap());
         // https://docs.vesu.xyz/dev-guides/singleton#liquidate_position
         // https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/data_model.cairo#L127C26-L127C27
-        // TODO: Parameters need to be adjusted
+        // and https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/extension/components/position_hooks.cairo#L588
         let liquidate_call = Call {
             to: VESU_SINGLETON_CONTRACT.to_owned(),
             selector: LIQUIDATE_SELECTOR.to_owned(),
@@ -176,12 +179,15 @@ impl Position {
                 self.debt.address,       // debt_asset
                 self.user_address,       // user
                 Felt::ZERO,              // receive_as_shares
-                Felt::ZERO,              // data
+                liquidator_address,      // liquidator
+                Felt::ZERO,              // min_collateral
+                Felt::ZERO,
+                Felt::from(debt_to_repay.low()),  // debt
+                Felt::from(debt_to_repay.high()), // debt
             ],
         };
 
-        // TODO: What about the debt repay for the loan?
-        vec![flash_loan_call, liquidate_call]
+        vec![liquidate_call]
     }
 }
 

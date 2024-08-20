@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 colored = "2.1.0"
 dotenvy = "0.15.7"
-starknet = "0.11.0"
+starknet = { git = "https://github.com/akhercha/starknet-rs.git", branch="master"}
 tokio = { version = "1.39.2", features = ["full"] }
 url = "2.5.2"
 serde = "1.0.207"

@@ -3,10 +3,10 @@ use std::sync::Arc;
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use starknet::{
-    accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
+    accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
     core::{
         chain_id,
-        types::{BlockId, BlockTag, Felt},
+        types::{BlockId, BlockTag, Call, Felt},
     },
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
