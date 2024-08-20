@@ -3,7 +3,7 @@ use std::fs;
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use starknet::core::types::Felt;
+use starknet::core::{types::Felt, utils::get_selector_from_name};
 
 pub const PUBLIC_MAINNET_RPC: &str = "https://starknet-mainnet.public.blastapi.io";
 
@@ -15,9 +15,6 @@ pub struct Config {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct VesuConfig {
-    pub position_unsafe_selector: String,
-    pub ltv_config_selector: String,
-    pub modify_position_event: String,
     pub mainnet: NetworkConfig,
     pub sepolia: NetworkConfig,
 }
@@ -42,16 +39,19 @@ lazy_static! {
         let config_str = fs::read_to_string("config.yaml").expect("Failed to read config file");
         serde_yaml::from_str(&config_str).expect("Failed to parse config")
     };
+    // TODO: depends on network from CLI...
     pub static ref EXTENSION_CONTRACT: Felt =
         Felt::from_hex(&CONFIG.vesu.mainnet.extension_address).unwrap();
-    pub static ref MODIFY_POSITION_EVENT: Felt =
-        Felt::from_hex(&CONFIG.vesu.modify_position_event).unwrap();
     pub static ref VESU_SINGLETON_CONTRACT: Felt =
         Felt::from_hex(&CONFIG.vesu.mainnet.singleton_address).unwrap();
+
+    pub static ref MODIFY_POSITION_EVENT: Felt = get_selector_from_name("ModifyPosition").unwrap();
     pub static ref VESU_POSITION_UNSAFE_SELECTOR: Felt =
-        Felt::from_hex(&CONFIG.vesu.position_unsafe_selector).unwrap();
-    pub static ref VESU_LTV_CONFIG_SELECTOR: Felt =
-        Felt::from_hex(&CONFIG.vesu.ltv_config_selector).unwrap();
+        get_selector_from_name("position_unsafe").unwrap();
+    pub static ref VESU_LTV_CONFIG_SELECTOR: Felt = get_selector_from_name("ltv_config").unwrap();
+    pub static ref FLASH_LOAN_SELECTOR: Felt = get_selector_from_name("flash_loan").unwrap();
+    pub static ref LIQUIDATE_SELECTOR: Felt = get_selector_from_name("liquidate_position").unwrap();
+
     pub static ref ASSET_MAP: HashMap<Felt, &'static Asset> = {
         let mut map = HashMap::new();
         for asset in &CONFIG.assets {

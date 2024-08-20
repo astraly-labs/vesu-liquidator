@@ -129,20 +129,22 @@ impl IndexerService {
                     }
                     apibara_sdk::DataMessage::Invalidate { cursor } => match cursor {
                         Some(c) => {
-                            // TODO: don't panic, handle error
-                            panic!("Received an invalidate request data at {}", &c.order_key)
+                            return Err(anyhow::anyhow!(
+                                "Received an invalidate request data at {}",
+                                &c.order_key
+                            ));
                         }
-                        // TODO: don't panic, handle error
-                        None => panic!("Invalidate request without cursor provided"),
+                        None => {
+                            return Err(anyhow::anyhow!(
+                                "Invalidate request without cursor provided"
+                            ));
+                        }
                     },
-                    apibara_sdk::DataMessage::Heartbeat => {
-                        println!("🥰")
-                    }
+                    apibara_sdk::DataMessage::Heartbeat => {}
                 },
                 Ok(None) => continue,
                 Err(e) => {
-                    // TODO: don't panic, handle error
-                    panic!("Error while streaming: {}", e);
+                    return Err(anyhow::anyhow!("Error while streaming: {}", e));
                 }
             }
         }
@@ -168,8 +170,8 @@ impl IndexerService {
             .await?;
 
         let new_collateral = BigDecimal::new(result[4].to_bigint(), position.collateral.decimals);
-        position.collateral.amount = new_collateral;
         let new_debt = BigDecimal::new(result[6].to_bigint(), position.debt.decimals);
+        position.collateral.amount = new_collateral;
         position.debt.amount = new_debt;
         Ok(position)
     }
