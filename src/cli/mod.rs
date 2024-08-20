@@ -3,6 +3,7 @@ pub mod account;
 use std::env;
 
 use anyhow::{anyhow, Result};
+use strum::Display;
 use url::Url;
 
 use account::AccountParams;
@@ -63,10 +64,12 @@ impl RunCmd {
 }
 
 /// Starknet network name.
-#[derive(Debug, Clone, Copy, clap::ValueEnum, PartialEq)]
+#[derive(Debug, Clone, Copy, clap::ValueEnum, PartialEq, Display)]
 pub enum NetworkName {
+    #[strum(serialize = "Mainnet")]
     #[value(alias("mainnet"))]
     Mainnet,
+    #[strum(serialize = "Sepolia")]
     #[value(alias("sepolia"))]
     Sepolia,
 }
