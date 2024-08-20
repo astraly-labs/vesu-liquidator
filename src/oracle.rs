@@ -5,9 +5,6 @@ use strum::Display;
 
 use crate::utils::conversions::hexa_price_to_big_decimal;
 
-// TODO: API URL should be a CLI arg
-pub const DEV_API_URL: &str = "https://api.dev.pragma.build/node/v1/data/";
-
 pub const USD_ASSET: &str = "usd";
 
 #[derive(Deserialize, Debug)]
@@ -26,10 +23,10 @@ pub struct PragmaOracle {
 }
 
 impl PragmaOracle {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_url: String, api_key: String) -> Self {
         Self {
             http_client: reqwest::Client::new(),
-            api_url: DEV_API_URL.to_owned(),
+            api_url,
             api_key,
             aggregation_method: AggregationMethod::Median,
             // TODO: Assert that we want OneMinute
@@ -41,7 +38,7 @@ impl PragmaOracle {
 impl PragmaOracle {
     pub fn fetch_price_url(&self, base: String, quote: String) -> String {
         format!(
-            "{}{}/{}?interval={}&aggregation={}",
+            "{}node/v1/data/{}/{}?interval={}&aggregation={}",
             self.api_url, base, quote, self.interval, self.aggregation_method
         )
     }

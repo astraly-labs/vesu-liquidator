@@ -29,13 +29,13 @@ pub struct RunCmd {
     #[clap(long, short, value_name = "BLOCK NUMBER")]
     pub starting_block: u64,
 
-    /// Apibara API Key for indexing.
-    #[clap(long, value_name = "APIBARA API KEY")]
-    pub apibara_api_key: Option<String>,
-
     /// Pragma API Key for indexing.
     #[clap(long, value_parser = parse_url, value_name = "PRAGMA API BASE URL")]
     pub pragma_api_base_url: Url,
+
+    /// Apibara API Key for indexing.
+    #[clap(long, value_name = "APIBARA API KEY")]
+    pub apibara_api_key: Option<String>,
 
     /// Pragma API Key for indexing.
     #[clap(long, value_name = "PRAGMA API KEY")]
@@ -66,13 +66,4 @@ pub enum NetworkName {
     Mainnet,
     #[value(alias("sepolia"))]
     Sepolia,
-}
-
-impl NetworkName {
-    pub fn default_rpc(&self) -> &'static str {
-        match self {
-            NetworkName::Mainnet => "https://free-rpc.nethermind.io/mainnet-juno",
-            NetworkName::Sepolia => "https://free-rpc.nethermind.io/sepolia-juno",
-        }
-    }
 }

@@ -40,13 +40,14 @@ impl MonitoringService {
     pub fn new(
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         account: StarknetAccount,
+        pragma_api_base_url: String,
         pragma_api_key: String,
         positions_receiver: Receiver<Position>,
     ) -> MonitoringService {
         MonitoringService {
             rpc_client,
             account,
-            pragma_oracle: Arc::new(PragmaOracle::new(pragma_api_key)),
+            pragma_oracle: Arc::new(PragmaOracle::new(pragma_api_base_url, pragma_api_key)),
             positions_receiver,
             positions: PositionsMap::new(),
         }

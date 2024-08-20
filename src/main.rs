@@ -43,6 +43,7 @@ async fn main() -> Result<()> {
     let monitoring_service = MonitoringService::new(
         Arc::clone(&rpc_client),
         account,
+        run_cmd.pragma_api_base_url.to_string(),
         run_cmd.pragma_api_key.unwrap(),
         position_receiver,
     );
