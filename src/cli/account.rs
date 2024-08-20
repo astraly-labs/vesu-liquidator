@@ -44,7 +44,9 @@ impl AccountParams {
         ) {
             (Some(_), Some(_), None, None) => Ok(()),
             (None, None, Some(_), Some(_)) => Ok(()),
-            _ => Err(anyhow!("Invalid combination of account parameters. Use either (account_address + private_key) or (keystore_path + keystore_password).")),
+            _ => Err(
+                anyhow!("Missing liquidator account information. Use either (--account-address + --private-key) or (--keystore-path + --keystore-password).")
+            ),
         }
     }
 }

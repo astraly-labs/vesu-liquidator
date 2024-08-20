@@ -35,10 +35,10 @@ pub const PRIVATE_KEY: &str = "0x01a76e1a8d42bf894161b62fbbc5406e2319dedf39214a9
 async fn main() -> Result<()> {
     dotenvy::dotenv()?;
 
-    display::print_app_title();
+    let mut run_cmd: RunCmd = RunCmd::parse();
+    run_cmd.validate()?;
 
-    let run_cmd: RunCmd = RunCmd::parse();
-    run_cmd.account_params.validate()?;
+    display::print_app_title();
 
     let pragma_api_key: String = env::var("PRAGMA_API_KEY")?;
     let apibara_key: String = env::var("APIBARA_API_KEY")?;

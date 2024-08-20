@@ -1,7 +1,11 @@
 pub mod account;
 
-use account::AccountParams;
+use std::env;
+
+use anyhow::{anyhow, Result};
 use url::Url;
+
+use account::AccountParams;
 
 fn parse_url(s: &str) -> Result<Url, url::ParseError> {
     s.parse()
@@ -30,6 +34,23 @@ pub struct RunCmd {
     /// Pragma API Key for indexing.
     #[clap(long, value_name = "PRAGMA API KEY")]
     pub pragma_api_key: Option<String>,
+}
+
+impl RunCmd {
+    /// Validate CLI arguments
+    pub fn validate(&mut self) -> Result<()> {
+        self.account_params.validate()?;
+        if self.pragma_api_key.is_none() {
+            self.pragma_api_key = env::var("PRAGMA_API_KEY").ok();
+        }
+        if self.apibara_api_key.is_none() {
+            self.apibara_api_key = env::var("APIBARA_API_KEY").ok();
+        }
+        if self.pragma_api_key.is_none() && self.apibara_api_key.is_none() {
+            return Err(anyhow!("Both Pragma API Key and Apibara API Key are missing. Please provide at least one either via command line arguments or environment variables."));
+        }
+        Ok(())
+    }
 }
 
 /// Starknet network name.
