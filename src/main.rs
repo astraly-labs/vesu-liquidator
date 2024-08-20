@@ -60,7 +60,6 @@ async fn main() -> Result<()> {
             .context("😱 Indexer service error")
     });
 
-    // TODO: Is it a good idea?
     println!("⏳ Waiting a few moments for the indexer to catch up...");
     tokio::time::sleep(Duration::from_secs(15)).await;
 

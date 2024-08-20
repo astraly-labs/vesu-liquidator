@@ -1,18 +1,18 @@
+use anyhow::Result;
+use apibara_core::starknet::v1alpha2::FieldElement;
+use bigdecimal::num_bigint::BigInt;
+use bigdecimal::BigDecimal;
+use colored::Colorize;
+use starknet::core::types::{Call, Felt, U256};
+use starknet::core::utils::get_selector_from_name;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use anyhow::Result;
-use apibara_core::starknet::v1alpha2::FieldElement;
-use bigdecimal::num_bigint::{BigInt, ToBigInt};
-use bigdecimal::{BigDecimal, ToPrimitive};
-use colored::Colorize;
-use starknet::core::types::{Call, Felt, U256};
-use starknet::core::utils::get_selector_from_name;
 use tokio::sync::RwLock;
 
 use crate::{
-    config::{FLASH_LOAN_SELECTOR, LIQUIDATE_SELECTOR, VESU_SINGLETON_CONTRACT},
+    config::{LIQUIDATE_SELECTOR, VESU_SINGLETON_CONTRACT},
     oracle::PragmaOracle,
     types::asset::Asset,
     utils::conversions::apibara_field_element_as_felt,
@@ -47,9 +47,9 @@ pub struct Position {
     pub lltv: BigDecimal,
 }
 
-fn apply_overhead(num: BigDecimal) -> BigDecimal{
+fn apply_overhead(num: BigDecimal) -> BigDecimal {
     // we apply overhead of 2% as in vesu frontend
-    let overhead_to_apply = BigDecimal::new(BigInt::from(102),2);
+    let overhead_to_apply = BigDecimal::new(BigInt::from(102), 2);
     num * overhead_to_apply
 }
 
@@ -91,10 +91,14 @@ impl Position {
             * pragma_oracle
                 .get_dollar_price(self.collateral.name.to_lowercase())
                 .await?;
-        let debt_asset_dollar_price = pragma_oracle.get_dollar_price(self.debt.name.to_lowercase()).await?;
+        let debt_asset_dollar_price = pragma_oracle
+            .get_dollar_price(self.debt.name.to_lowercase())
+            .await?;
         let current_debt = self.debt.amount.clone() * debt_asset_dollar_price.clone();
         let max_debt_in_dollar = current_debt - max_debt_in_dollar;
-        Ok(apply_overhead((max_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals)))
+        Ok(apply_overhead(
+            (max_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals),
+        ))
     }
 
     /// Check if a position is closed.
@@ -152,38 +156,34 @@ impl Position {
     }
 
     /// Returns the TX necessary to liquidate this position (flashloan + liquidate).
-    pub fn get_liquidation_txs(
-        &self,
-        amount_to_liquidate: BigDecimal,
-    ) -> Vec<Call> {
+    pub fn get_liquidation_txs(&self, amount_to_liquidate: BigDecimal) -> Vec<Call> {
         // https://docs.vesu.xyz/dev-guides/singleton#flash_loan
-        // TODO: Won't work without a custom contract with a on_flash_loan function
+        // TODO: Won't work without a custom contract with a on_flash_loan function.
         // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
         // let flash_loan_call = Call {
         //     to: VESU_SINGLETON_CONTRACT.to_owned(),
         //     selector: FLASH_LOAN_SELECTOR.to_owned(),
         //     calldata: vec![
         //         liquidator_address,                       // receiver
-        //         self.debt.address,                        // asset
+        //         self.debt.address,                        // a asset
         //         Felt::from(amount_to_liquidate.digits()), // amount
         //         Felt::ZERO,                               // is_legacy
         //     ],
         // };
 
-        println!("amount_to_liquidate is {}", amount_to_liquidate);
-        let (amount, _) = amount_to_liquidate.as_bigint_and_exponent();
-        println!("amount is {}", amount);
-        let debt_to_repay:U256 = U256::from(Felt::from(amount.clone()));
+        let (amount, _): (BigInt, _) = amount_to_liquidate.as_bigint_and_exponent();
+        let debt_to_repay = U256::from(Felt::from(amount.clone()));
 
         let approve_call = Call {
             to: self.debt.address,
             selector: get_selector_from_name("approve").unwrap(),
             calldata: vec![
                 VESU_SINGLETON_CONTRACT.to_owned(),
-                Felt::from(debt_to_repay.low()),  // debt
-                Felt::from(debt_to_repay.high()), // debt
+                Felt::from(debt_to_repay.low()),
+                Felt::from(debt_to_repay.high()),
             ],
         };
+
         // https://docs.vesu.xyz/dev-guides/singleton#liquidate_position
         // https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/data_model.cairo#L127C26-L127C27
         // and https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/extension/components/position_hooks.cairo#L588
@@ -197,14 +197,14 @@ impl Position {
                 self.user_address,       // user
                 Felt::ZERO,              // receive_as_shares
                 Felt::from(4),
-                Felt::ZERO,              // min_collateral
+                Felt::ZERO, // min_collateral
                 Felt::ZERO,
                 Felt::from(debt_to_repay.low()),  // debt
                 Felt::from(debt_to_repay.high()), // debt
             ],
         };
 
-        vec![approve_call,liquidate_call]
+        vec![approve_call, liquidate_call]
     }
 }
 

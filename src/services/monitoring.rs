@@ -89,9 +89,7 @@ impl MonitoringService {
     async fn compute_profitability(&self, position: &Position) -> Result<BigDecimal> {
         let liquidable_amount = position.liquidable_amount(&self.pragma_oracle).await?;
 
-        let liquidation_txs = position.get_liquidation_txs(
-            liquidable_amount.clone(),
-        );
+        let liquidation_txs = position.get_liquidation_txs(liquidable_amount.clone());
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
         println!("Execution fees estimated: {}", execution_fees);
 

@@ -53,10 +53,7 @@ impl StarknetAccount {
         let account = self.0.clone();
         let estimation = account.execute_v1(txs.to_vec());
         let estimation = estimation.estimate_fee().await?;
-        Ok(BigDecimal::new(
-            estimation.overall_fee.to_bigint(),
-            18,
-        ))
+        Ok(BigDecimal::new(estimation.overall_fee.to_bigint(), 18))
     }
 
     // TODO

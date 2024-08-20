@@ -46,7 +46,6 @@ impl PragmaOracle {
         )
     }
 
-    // TODO: Check price missing bug
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
         let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
         let response = self
@@ -55,6 +54,10 @@ impl PragmaOracle {
             .header("x-api-key", &self.api_key)
             .send()
             .await?;
+        if response.status() != 200 {
+            println!("⛔ Oracle Request failed with: {:?}", response.text().await);
+            panic!("Exiting.");
+        }
         let response_text = response.text().await?;
         let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
         Ok(hexa_price_to_big_decimal(
