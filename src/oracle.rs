@@ -54,7 +54,8 @@ impl PragmaOracle {
             .header("x-api-key", &self.api_key)
             .send()
             .await?;
-        let oracle_response = response.json::<OracleApiResponse>().await?;
+        let response_text = response.text().await?;
+        let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
         Ok(hexa_price_to_big_decimal(
             oracle_response.price.as_str(),
             oracle_response.decimals,

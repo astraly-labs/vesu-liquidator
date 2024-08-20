@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use anyhow::Result;
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::BigDecimal;
@@ -17,6 +19,7 @@ pub struct Position {
 }
 
 impl Position {
+    /// Create a new position from the event_keys of a ModifyPosition event.
     pub fn try_from_event(event_keys: &[FieldElement]) -> Result<Position> {
         let event_keys: Vec<Felt> = event_keys
             .iter()
@@ -64,5 +67,12 @@ impl Position {
             self.debt.address,
             self.user_address,
         ]
+    }
+
+    /// Returns a unique identifier for the position by hashing the update calldata.
+    pub fn key(&self) -> u64 {
+        let mut hasher = std::hash::DefaultHasher::new();
+        self.as_update_calldata().hash(&mut hasher);
+        hasher.finish()
     }
 }

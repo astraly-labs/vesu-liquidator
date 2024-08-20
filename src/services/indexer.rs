@@ -1,25 +1,39 @@
-use crate::{
-    config::{MODIFY_POSITION_EVENT, VESU_SINGLETON_CONTRACT},
-    types::position::Position,
-    utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field_element},
+use std::sync::Arc;
+
+use anyhow::Result;
+use bigdecimal::BigDecimal;
+use futures_util::TryStreamExt;
+use starknet::core::types::Felt;
+use starknet::{
+    core::types::{BlockId, BlockTag, FunctionCall},
+    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
+use tokio::sync::mpsc::Sender;
+
 use apibara_core::{
     node::v1alpha2::DataFinality,
     starknet::v1alpha2::{Block, Filter, HeaderFilter},
 };
 use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
-use futures_util::TryStreamExt;
-use starknet::core::types::Felt;
-use tokio::sync::mpsc::Sender;
+
+use crate::{
+    config::{
+        MODIFY_POSITION_EVENT, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
+        VESU_SINGLETON_CONTRACT,
+    },
+    types::position::Position,
+    utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field_element},
+};
 
 // Constants for execution.
 // Only for testing purposes.
 // TODO: Should be CLI args.
-const FROM_BLOCK: u64 = 668_220;
+const FROM_BLOCK: u64 = 660_220;
 
 const INDEXING_STREAM_CHUNK_SIZE: usize = 128;
 
 pub struct IndexerService {
+    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     uri: Uri,
     apibara_api_key: String,
     stream_config: Configuration<Filter>,
@@ -27,7 +41,11 @@ pub struct IndexerService {
 }
 
 impl IndexerService {
-    pub fn new(apibara_api_key: String, positions_sender: Sender<Position>) -> IndexerService {
+    pub fn new(
+        rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+        apibara_api_key: String,
+        positions_sender: Sender<Position>,
+    ) -> IndexerService {
         // TODO: change if sepolia to https://sepolia.starknet.a5a.ch
         let uri: Uri = Uri::from_static("https://mainnet.starknet.a5a.ch");
 
@@ -49,6 +67,7 @@ impl IndexerService {
             });
 
         IndexerService {
+            rpc_client,
             uri,
             apibara_api_key,
             stream_config,
@@ -57,13 +76,16 @@ impl IndexerService {
     }
 
     /// Retrieve all the ModifyPosition events emitted from the Vesu Singleton Contract.
-    pub async fn start(self) -> ! {
+    pub async fn start(self) -> Result<()> {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
-        config_client.send(self.stream_config).await.unwrap();
+        config_client
+            .send(self.stream_config.clone())
+            .await
+            .unwrap();
 
         let mut stream = ClientBuilder::default()
-            .with_bearer_token(Some(self.apibara_api_key))
-            .connect(self.uri)
+            .with_bearer_token(Some(self.apibara_api_key.clone()))
+            .connect(self.uri.clone())
             .await
             .unwrap()
             .start_stream::<Filter, Block, _>(config_stream)
@@ -83,6 +105,7 @@ impl IndexerService {
                         for block in batch {
                             for events_chunk in block.events {
                                 for event in events_chunk.receipt.unwrap().events {
+                                    // TODO: Currently hand filtered :)
                                     let from =
                                         apibara_field_element_as_felt(&event.from_address.unwrap());
                                     if from != VESU_SINGLETON_CONTRACT.to_owned() {
@@ -96,8 +119,9 @@ impl IndexerService {
                                     if third == Felt::ZERO {
                                         continue;
                                     }
-                                    let new_position =
-                                        Position::try_from_event(&event.keys).unwrap();
+                                    // Create the new position & update the fields.
+                                    let mut new_position = Position::try_from_event(&event.keys)?;
+                                    new_position = self.update_position(new_position).await?;
                                     let _ = self.positions_sender.try_send(new_position);
                                 }
                             }
@@ -122,5 +146,49 @@ impl IndexerService {
                 }
             }
         }
+    }
+
+    /// Update a position given the latest data available.
+    async fn update_position(&self, mut position: Position) -> Result<Position> {
+        position = self.update_position_amounts(position).await?;
+        position = self.update_position_lltv(position).await?;
+        Ok(position)
+    }
+
+    /// Update the position debt & collateral amount with the latest available data.
+    async fn update_position_amounts(&self, mut position: Position) -> Result<Position> {
+        let get_position_request = &FunctionCall {
+            contract_address: VESU_SINGLETON_CONTRACT.to_owned(),
+            entry_point_selector: VESU_POSITION_UNSAFE_SELECTOR.to_owned(),
+            calldata: position.as_update_calldata(),
+        };
+        let result = self
+            .rpc_client
+            .call(get_position_request, BlockId::Tag(BlockTag::Pending))
+            .await?;
+
+        let new_collateral = BigDecimal::new(result[4].to_bigint(), position.collateral.decimals);
+        position.collateral.amount = new_collateral;
+        let new_debt = BigDecimal::new(result[6].to_bigint(), position.debt.decimals);
+        position.debt.amount = new_debt;
+        Ok(position)
+    }
+
+    /// Update the LLTV with the latest available data.
+    async fn update_position_lltv(&self, mut position: Position) -> Result<Position> {
+        let ltv_config_request = &FunctionCall {
+            contract_address: VESU_SINGLETON_CONTRACT.to_owned(),
+            entry_point_selector: VESU_LTV_CONFIG_SELECTOR.to_owned(),
+            calldata: position.as_ltv_calldata(),
+        };
+
+        let ltv_config = self
+            .rpc_client
+            .call(ltv_config_request, BlockId::Tag(BlockTag::Pending))
+            .await?;
+
+        // Decimals is always 18 for the ltv_config response
+        position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), 18);
+        Ok(position)
     }
 }
