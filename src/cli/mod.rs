@@ -32,7 +32,7 @@ pub struct RunCmd {
     pub pragma_api_key: Option<String>,
 }
 
-/// Starknet network types.
+/// Starknet network name.
 #[derive(Debug, Clone, Copy, clap::ValueEnum, PartialEq)]
 pub enum NetworkName {
     #[value(alias("mainnet"))]

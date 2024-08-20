@@ -37,7 +37,8 @@ async fn main() -> Result<()> {
 
     display::print_app_title();
 
-    let mut run_cmd: RunCmd = RunCmd::parse();
+    let run_cmd: RunCmd = RunCmd::parse();
+    run_cmd.account_params.validate()?;
 
     let pragma_api_key: String = env::var("PRAGMA_API_KEY")?;
     let apibara_key: String = env::var("APIBARA_API_KEY")?;
