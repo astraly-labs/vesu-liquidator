@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
             .context("😱 Indexer service failed!")
     });
 
-    println!("⏳ Waiting a few moments for the indexer to fetch positions...");
+    println!("⏳ Waiting a few moment for the indexer to fetch positions...");
     tokio::time::sleep(Duration::from_secs(15)).await;
 
     println!("\n🧩 Starting the monitoring service...");

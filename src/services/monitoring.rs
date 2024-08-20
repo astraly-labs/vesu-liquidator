@@ -23,7 +23,7 @@ lazy_static! {
 }
 
 // TODO: Should be a CLI arg
-const CHECK_POSITIONS_INTERVAL: u64 = 5;
+const CHECK_POSITIONS_INTERVAL: u64 = 10;
 
 const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 const INTERVAL_CHECK_TX_FINALITY: u64 = 3;
