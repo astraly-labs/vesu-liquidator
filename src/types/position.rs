@@ -3,7 +3,8 @@ use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
-use starknet::core::types::{Call, Felt, U256};
+use starknet::accounts::Call;
+use starknet::core::types::Felt;
 use starknet::core::utils::get_selector_from_name;
 use std::collections::HashMap;
 use std::fmt;
@@ -11,6 +12,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
     config::{LIQUIDATE_SELECTOR, VESU_SINGLETON_CONTRACT},
     oracle::PragmaOracle,
@@ -155,24 +157,11 @@ impl Position {
         hasher.finish()
     }
 
-    /// Returns the TX necessary to liquidate this position (flashloan + liquidate).
+    /// Returns the TX necessary to liquidate this position (approve + liquidate).
+    // TODO: Flash loan with a custom contract with a on_flash_loan function.
+    // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
     pub fn get_liquidation_txs(&self, amount_to_liquidate: BigDecimal) -> Vec<Call> {
-        // https://docs.vesu.xyz/dev-guides/singleton#flash_loan
-        // TODO: Won't work without a custom contract with a on_flash_loan function.
-        // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
-        // let flash_loan_call = Call {
-        //     to: VESU_SINGLETON_CONTRACT.to_owned(),
-        //     selector: FLASH_LOAN_SELECTOR.to_owned(),
-        //     calldata: vec![
-        //         liquidator_address,                       // receiver
-        //         self.debt.address,                        // a asset
-        //         Felt::from(amount_to_liquidate.digits()), // amount
-        //         Felt::ZERO,                               // is_legacy
-        //     ],
-        // };
-
-        let (amount, _): (BigInt, _) = amount_to_liquidate.as_bigint_and_exponent();
-        let debt_to_repay = U256::from(Felt::from(amount.clone()));
+        let debt_to_repay = big_decimal_to_u256(amount_to_liquidate);
 
         let approve_call = Call {
             to: self.debt.address,
@@ -185,8 +174,6 @@ impl Position {
         };
 
         // https://docs.vesu.xyz/dev-guides/singleton#liquidate_position
-        // https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/data_model.cairo#L127C26-L127C27
-        // and https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/extension/components/position_hooks.cairo#L588
         let liquidate_call = Call {
             to: VESU_SINGLETON_CONTRACT.to_owned(),
             selector: LIQUIDATE_SELECTOR.to_owned(),
@@ -196,8 +183,8 @@ impl Position {
                 self.debt.address,       // debt_asset
                 self.user_address,       // user
                 Felt::ZERO,              // receive_as_shares
-                Felt::from(4),
-                Felt::ZERO, // min_collateral
+                Felt::from(4),           // number of elements below
+                Felt::ZERO,              // min_collateral (U256)
                 Felt::ZERO,
                 Felt::from(debt_to_repay.low()),  // debt
                 Felt::from(debt_to_repay.high()), // debt

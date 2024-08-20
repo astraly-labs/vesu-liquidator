@@ -53,16 +53,18 @@ async fn main() -> Result<()> {
         position_receiver,
     );
 
+    println!("🧩 Starting the indexer service...");
     let indexer_handle = tokio::spawn(async move {
         indexer_service
             .start()
             .await
-            .context("😱 Indexer service error")
+            .context("😱 Indexer service failed!")
     });
 
-    println!("⏳ Waiting a few moments for the indexer to catch up...");
+    println!("⏳ Waiting a few moments for the indexer to fetch positions...");
     tokio::time::sleep(Duration::from_secs(15)).await;
 
+    println!("\n🧩 Starting the monitoring service...");
     let monitoring_handle = tokio::spawn(async move {
         monitoring_service
             .start()

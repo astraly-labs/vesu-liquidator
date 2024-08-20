@@ -3,14 +3,16 @@ use std::sync::Arc;
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use starknet::{
-    accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
+    accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
     core::{
         chain_id,
-        types::{BlockId, BlockTag, Call, Felt},
+        types::{BlockId, BlockTag, Felt},
     },
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
+
+const ETH_DECIMALS: i64 = 18;
 
 pub struct StarknetAccount(
     pub Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>,
@@ -35,6 +37,7 @@ impl StarknetAccount {
             chain_id::MAINNET,
             ExecutionEncoding::New,
         );
+
         account.set_block_id(BlockId::Tag(BlockTag::Pending));
 
         StarknetAccount(Arc::new(account))
@@ -48,15 +51,14 @@ impl StarknetAccount {
     /// Simulate a set of TXs and return the estimation of the fee necessary
     /// to execute them.
     pub async fn estimate_fees_cost(&self, txs: &[Call]) -> Result<BigDecimal> {
-        // We unwrap() the return value to assert that we are not expecting
-        // threads to ever fail while holding the lock.
-        let account = self.0.clone();
-        let estimation = account.execute_v1(txs.to_vec());
-        let estimation = estimation.estimate_fee().await?;
-        Ok(BigDecimal::new(estimation.overall_fee.to_bigint(), 18))
+        let estimation = self.0.execute_v1(txs.to_vec()).estimate_fee().await?;
+        Ok(BigDecimal::new(
+            estimation.overall_fee.to_bigint(),
+            ETH_DECIMALS,
+        ))
     }
 
-    // TODO
+    /// TODO: Executes a given set of transactions using the account.
     pub async fn execute_txs(&self, _txs: &[Call]) -> Result<()> {
         Ok(())
     }
