@@ -102,6 +102,7 @@ impl MonitoringService {
         let (profit, txs) = self.compute_profitability(position).await?;
         if profit > *MINIMUM_ACCEPTED_PROFIT {
             self.account.execute_txs(&txs).await?;
+            // TODO: wait for TX acceptance?
             println!("✅ Liquidated position #{}!", position.key());
         }
         Ok(profit)

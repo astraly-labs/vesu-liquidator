@@ -58,8 +58,9 @@ impl StarknetAccount {
         ))
     }
 
-    /// TODO: Executes a given set of transactions using the account.
-    pub async fn execute_txs(&self, _txs: &[Call]) -> Result<()> {
-        Ok(())
+    /// Executes a set of transactions and returns the transaction hash.
+    pub async fn execute_txs(&self, txs: &[Call]) -> Result<Felt> {
+        let res = self.0.execute_v1(txs.to_vec()).send().await?;
+        Ok(res.transaction_hash)
     }
 }
