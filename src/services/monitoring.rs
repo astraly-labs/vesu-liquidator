@@ -5,7 +5,8 @@ use bigdecimal::BigDecimal;
 use lazy_static::lazy_static;
 use starknet::{
     accounts::Call,
-    providers::{jsonrpc::HttpTransport, JsonRpcClient},
+    core::types::{Felt, TransactionFinalityStatus},
+    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
 use tokio::sync::mpsc::Receiver;
 use tokio::time::interval;
@@ -23,6 +24,9 @@ lazy_static! {
 
 // TODO: Should be a CLI arg
 const CHECK_POSITIONS_INTERVAL: u64 = 5;
+
+const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
+const INTERVAL_CHECK_TX_FINALITY: u64 = 3;
 
 pub struct MonitoringService {
     pub rpc_client: Arc<JsonRpcClient<HttpTransport>>,
@@ -101,9 +105,14 @@ impl MonitoringService {
         }
         let (profit, txs) = self.compute_profitability(position).await?;
         if profit > *MINIMUM_ACCEPTED_PROFIT {
-            self.account.execute_txs(&txs).await?;
-            // TODO: wait for TX acceptance?
-            println!("✅ Liquidated position #{}!", position.key());
+            let tx_hash_felt = self.account.execute_txs(&txs).await?;
+            let tx_hash = tx_hash_felt.to_string();
+            self.wait_for_tx_to_be_accepted(&tx_hash).await?;
+            println!(
+                "✅ Liquidated position #{}! (TX #{})",
+                position.key(),
+                tx_hash
+            );
         }
         Ok(profit)
     }
@@ -117,5 +126,30 @@ impl MonitoringService {
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
         Ok((liquidable_amount - execution_fees, liquidation_txs))
+    }
+
+    /// Waits for a TX to be accepted on-chain.
+    pub async fn wait_for_tx_to_be_accepted(&self, tx_hash: &str) -> Result<()> {
+        let mut retries = 0;
+        let duration_to_wait_between_polling = Duration::from_secs(INTERVAL_CHECK_TX_FINALITY);
+        tokio::time::sleep(duration_to_wait_between_polling).await;
+
+        let tx_hash = Felt::from_hex(tx_hash)?;
+        loop {
+            let response = self.rpc_client.get_transaction_receipt(tx_hash).await?;
+            let status = response.receipt.finality_status();
+            if *status != TransactionFinalityStatus::AcceptedOnL2 {
+                retries += 1;
+                if retries > MAX_RETRIES_VERIFY_TX_FINALITY {
+                    return Err(anyhow!(
+                        "Max retries exceeeded while waiting for tx {tx_hash} finality."
+                    ));
+                }
+                tokio::time::sleep(duration_to_wait_between_polling).await;
+            } else {
+                break;
+            }
+        }
+        Ok(())
     }
 }
