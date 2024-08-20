@@ -52,7 +52,7 @@ impl StarknetAccount {
         // threads to ever fail while holding the lock.
         let account = self.0.clone();
         let estimation = account.execute_v1(txs.to_vec());
-        println!("x: {:?}", estimation);
+        println!("x");
         let estimation = estimation.simulate(false, false).await?;
         println!("d");
         Ok(BigDecimal::new(
