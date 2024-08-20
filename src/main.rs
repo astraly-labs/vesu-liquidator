@@ -39,6 +39,7 @@ async fn main() -> Result<()> {
         Arc::clone(&rpc_client),
         run_cmd.apibara_api_key.unwrap(),
         positions_sender,
+        run_cmd.starting_block,
     );
     let monitoring_service = MonitoringService::new(
         Arc::clone(&rpc_client),

@@ -55,6 +55,9 @@ impl RunCmd {
         if self.pragma_api_key.is_none() && self.apibara_api_key.is_none() {
             return Err(anyhow!("Both Pragma API Key and Apibara API Key are missing. Please provide at least one either via command line arguments or environment variables."));
         }
+        if self.starting_block < 654244 {
+            self.starting_block = 654244;
+        }
         Ok(())
     }
 }

@@ -25,11 +25,6 @@ use crate::{
     utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field_element},
 };
 
-// Constants for execution.
-// Only for testing purposes.
-// TODO: Should be CLI args.
-const FROM_BLOCK: u64 = 669_814;
-
 const INDEXING_STREAM_CHUNK_SIZE: usize = 128;
 
 pub struct IndexerService {
@@ -45,12 +40,13 @@ impl IndexerService {
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         apibara_api_key: String,
         positions_sender: Sender<Position>,
+        from_block: u64,
     ) -> IndexerService {
         // TODO: change if sepolia to https://sepolia.starknet.a5a.ch
         let uri: Uri = Uri::from_static("https://mainnet.starknet.a5a.ch");
 
         let stream_config = Configuration::<Filter>::default()
-            .with_starting_block(FROM_BLOCK)
+            .with_starting_block(from_block)
             .with_finality(DataFinality::DataStatusPending)
             // TODO: Filter does not seem to do anything. Done manually; investigate
             .with_filter(|mut filter| {
