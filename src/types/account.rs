@@ -4,15 +4,16 @@ use anyhow::Result;
 use bigdecimal::BigDecimal;
 use starknet::{
     accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
-    core::chain_id,
-    core::types::{BlockId, BlockTag, FeeEstimate, Felt},
+    core::{
+        chain_id,
+        types::{BlockId, BlockTag, Felt},
+    },
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
-use tokio::sync::RwLock;
 
 pub struct StarknetAccount(
-    pub Arc<RwLock<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>>,
+    pub Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>,
 );
 
 // TODO: Create an Account builder to be able to configure:
@@ -26,7 +27,7 @@ impl StarknetAccount {
         private_key: Felt,
     ) -> StarknetAccount {
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(private_key));
-        let account = SingleOwnerAccount::new(
+        let mut account = SingleOwnerAccount::new(
             rpc_client.clone(),
             signer,
             account_address,
@@ -34,13 +35,14 @@ impl StarknetAccount {
             chain_id::MAINNET,
             ExecutionEncoding::New,
         );
+        account.set_block_id(BlockId::Tag(BlockTag::Pending));
 
-        StarknetAccount(Arc::new(RwLock::new(account)))
+        StarknetAccount(Arc::new(account))
     }
 
     /// Returns the account_address of the Account.
     pub async fn account_address(&self) -> Felt {
-        self.0.read().await.address()
+        self.0.address()
     }
 
     /// Simulate a set of TXs and return the estimation of the fee necessary
@@ -48,13 +50,14 @@ impl StarknetAccount {
     pub async fn estimate_fees_cost(&self, txs: &[Call]) -> Result<BigDecimal> {
         // We unwrap() the return value to assert that we are not expecting
         // threads to ever fail while holding the lock.
-        let mut account = self.0.write().await;
-        account.set_block_id(BlockId::Tag(BlockTag::Pending));
-
-        let estimation: FeeEstimate = account.execute_v1(txs.to_vec()).estimate_fee().await?;
+        let account = self.0.clone();
+        let estimation = account.execute_v1(txs.to_vec());
+        println!("x: {:?}", estimation);
+        let estimation = estimation.simulate(false, false).await?;
+        println!("d");
         Ok(BigDecimal::new(
-            estimation.overall_fee.to_bigint(),
-            18 as i64,
+            estimation.fee_estimation.overall_fee.to_bigint(),
+            18,
         ))
     }
 

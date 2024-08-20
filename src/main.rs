@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
 
     let rpc_url: Url = PUBLIC_MAINNET_RPC.parse()?;
     let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));
-    
+
     // TODO: Allow from keystore + CLI args
     let account = StarknetAccount::from_secret(
         rpc_client.clone(),

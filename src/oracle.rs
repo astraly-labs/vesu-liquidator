@@ -46,6 +46,7 @@ impl PragmaOracle {
         )
     }
 
+    // TODO: Check price missing bug
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
         let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
         let response = self

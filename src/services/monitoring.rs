@@ -77,10 +77,9 @@ impl MonitoringService {
         }
         println!("\n🔎 Checking if any position is liquidable...");
         for (_, position) in monitored_positions.iter() {
-            if position.is_liquidable(&self.pragma_oracle).await {
-                let _estimated_profit = self.compute_profitability(position).await?;
-                // TODO: if profit > threshold, go liquidate by executing txs
-            }
+            let _ = position.is_liquidable(&self.pragma_oracle).await;
+            let estimated_profit = self.compute_profitability(position).await?;
+            println!("Estimated profit: {}", estimated_profit)
         }
         println!("🤨 They're good.. for now...");
         Ok(())
@@ -95,6 +94,7 @@ impl MonitoringService {
             liquidable_amount.clone(),
         );
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
+        println!("Execution fees estimated: {}", execution_fees);
 
         Ok(liquidable_amount - execution_fees)
     }

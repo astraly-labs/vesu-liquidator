@@ -179,6 +179,8 @@ impl Position {
                 Felt::ZERO,              // data
             ],
         };
+
+        // TODO: What about the debt repay for the loan?
         vec![flash_loan_call, liquidate_call]
     }
 }
