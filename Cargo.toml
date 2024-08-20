@@ -2,6 +2,12 @@
 name = "vesu-liquidator"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+homepage = "https://pragma.build/"
+repository = "https://github.com/astraly-labs/Vesu-liquidator"
+description = "Liquidator bot for the Vesu Protocol"
+readme = "README.md"
+keywords = ["vesu", "liquidator", "bot", "starknet"]
 
 [dependencies]
 anyhow = "1.0.86"
@@ -9,7 +15,6 @@ bigdecimal = "0.4.5"
 colored = "2.1.0"
 dotenvy = "0.15.7"
 futures-util = "0.3.30"
-json = "0.12.4"
 lazy_static = "1.5.0"
 reqwest = { version = "0.12.5", features = ["json"] }
 serde = "1.0.207"
