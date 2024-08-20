@@ -1,6 +1,5 @@
 pub mod cli;
 pub mod config;
-pub mod display;
 pub mod oracle;
 pub mod services;
 pub mod types;
@@ -15,13 +14,24 @@ use services::start_liquidator_services;
 use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
 use types::account::StarknetAccount;
 
+fn print_app_title() {
+    println!("\n
+██╗   ██╗███████╗███████╗██╗   ██╗    ██╗     ██╗ ██████╗ ██╗   ██╗██╗██████╗  █████╗ ████████╗ ██████╗ ██████╗ 
+██║   ██║██╔════╝██╔════╝██║   ██║    ██║     ██║██╔═══██╗██║   ██║██║██╔══██╗██╔══██╗╚══██╔══╝██╔═══██╗██╔══██╗
+██║   ██║█████╗  ███████╗██║   ██║    ██║     ██║██║   ██║██║   ██║██║██║  ██║███████║   ██║   ██║   ██║██████╔╝
+╚██╗ ██╔╝██╔══╝  ╚════██║██║   ██║    ██║     ██║██║▄▄ ██║██║   ██║██║██║  ██║██╔══██║   ██║   ██║   ██║██╔══██╗
+ ╚████╔╝ ███████╗███████║╚██████╔╝    ███████╗██║╚██████╔╝╚██████╔╝██║██████╔╝██║  ██║   ██║   ╚██████╔╝██║  ██║
+  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝     ╚══════╝╚═╝ ╚══▀▀═╝  ╚═════╝ ╚═╝╚═════╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
+    \n");
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv()?;
     let mut run_cmd: RunCmd = RunCmd::parse();
     run_cmd.validate()?;
 
-    display::print_app_title();
+    print_app_title();
 
     let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(
         run_cmd.rpc_url.clone(),
