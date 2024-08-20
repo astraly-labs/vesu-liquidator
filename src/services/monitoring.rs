@@ -90,7 +90,6 @@ impl MonitoringService {
         let liquidable_amount = position.liquidable_amount(&self.pragma_oracle).await?;
 
         let liquidation_txs = position.get_liquidation_txs(
-            self.account.account_address().await,
             liquidable_amount.clone(),
         );
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
