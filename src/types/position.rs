@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
@@ -12,11 +12,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::config::Config;
+use crate::services::oracle::LatestOraclePrices;
 use crate::utils::apply_overhead;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
-    config::LIQUIDATE_SELECTOR, oracle::PragmaOracle, types::asset::Asset,
-    utils::conversions::apibara_field_as_felt,
+    config::LIQUIDATE_SELECTOR, types::asset::Asset, utils::conversions::apibara_field_as_felt,
 };
 
 /// Thread-safe wrapper around the positions.
@@ -30,6 +30,14 @@ impl PositionsMap {
 
     pub async fn insert(&self, position: Position) -> Option<Position> {
         self.0.write().await.insert(position.key(), position)
+    }
+
+    pub async fn len(&self) -> usize {
+        self.0.read().await.len()
+    }
+
+    pub async fn is_empty(&self) -> bool {
+        self.0.read().await.is_empty()
     }
 }
 
@@ -70,34 +78,51 @@ impl Position {
     }
 
     /// Computes & returns the LTV Ratio for a position.
-    pub async fn ltv(&self, pragma_oracle: &PragmaOracle) -> Result<BigDecimal> {
-        let collateral_as_dollars = pragma_oracle
-            .get_dollar_price(self.collateral.name.to_lowercase())
-            .await?;
+    /// Computes & returns the LTV Ratio for a position.
+    pub async fn ltv(&self, oracle_prices: &LatestOraclePrices) -> Result<BigDecimal> {
+        let collateral_name = self.collateral.name.to_lowercase();
+        let debt_name = self.debt.name.to_lowercase();
 
-        let debt_as_dollars = pragma_oracle
-            .get_dollar_price(self.debt.name.to_lowercase())
-            .await?;
+        let prices = oracle_prices.0.lock().await;
+        let collateral_as_dollars = prices
+            .get(&collateral_name)
+            .ok_or_else(|| anyhow!("Price not found for collateral: {}", collateral_name))?
+            .clone();
+        let debt_as_dollars = prices
+            .get(&debt_name)
+            .ok_or_else(|| anyhow!("Price not found for debt: {}", debt_name))?
+            .clone();
+        drop(prices);
 
         Ok((self.debt.amount.clone() * debt_as_dollars)
             / (self.collateral.amount.clone() * collateral_as_dollars))
     }
 
     /// Computes the liquidable amount for the liquidable position.
-    pub async fn liquidable_amount(&self, pragma_oracle: &PragmaOracle) -> Result<BigDecimal> {
-        let max_debt_in_dollar = self.collateral.amount.clone()
-            * self.lltv.clone()
-            * pragma_oracle
-                .get_dollar_price(self.collateral.name.to_lowercase())
-                .await?;
-        let debt_asset_dollar_price = pragma_oracle
-            .get_dollar_price(self.debt.name.to_lowercase())
-            .await?;
-        let current_debt = self.debt.amount.clone() * debt_asset_dollar_price.clone();
-        let max_debt_in_dollar = current_debt - max_debt_in_dollar;
-        Ok(apply_overhead(
-            (max_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals),
-        ))
+    pub async fn liquidable_amount(
+        &self,
+        oracle_prices: &LatestOraclePrices,
+    ) -> Result<BigDecimal> {
+        let prices = oracle_prices.0.lock().await;
+        let collateral_dollar_price = prices
+            .get(&self.collateral.name.to_lowercase())
+            .ok_or_else(|| anyhow!("Price not found for collateral: {}", self.collateral.name))?
+            .clone();
+        let debt_asset_dollar_price = prices
+            .get(&self.debt.name.to_lowercase())
+            .ok_or_else(|| anyhow!("Price not found for debt: {}", self.debt.name))?
+            .clone();
+        drop(prices);
+
+        let max_debt_in_dollar = &self.collateral.amount * &self.lltv * collateral_dollar_price;
+
+        let current_debt = &self.debt.amount * debt_asset_dollar_price.clone();
+        let liquidable_debt_in_dollar = current_debt - max_debt_in_dollar;
+
+        let liquidable_amount =
+            (&liquidable_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals);
+
+        Ok(apply_overhead(liquidable_amount))
     }
 
     /// Check if a position is closed.
@@ -106,9 +131,9 @@ impl Position {
     }
 
     /// Returns if the position is liquidable or not.
-    pub async fn is_liquidable(&self, pragma_oracle: &PragmaOracle) -> bool {
+    pub async fn is_liquidable(&self, oracle_prices: &LatestOraclePrices) -> bool {
         let ltv_ratio = self
-            .ltv(pragma_oracle)
+            .ltv(oracle_prices)
             .await
             .expect("failed to retrieve ltv ratio");
 

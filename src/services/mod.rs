@@ -1,7 +1,9 @@
 pub mod indexer;
 pub mod monitoring;
+pub mod oracle;
 
-use std::{sync::Arc, time::Duration};
+use oracle::{LatestOraclePrices, OracleService};
+use std::sync::Arc;
 use url::Url;
 
 use anyhow::{Context, Result};
@@ -22,7 +24,7 @@ use crate::{
 /// This include:
 /// - the indexer service, that indexes blocks & send positions,
 /// - the monitoring service, that monitors & liquidates positions.
-pub async fn start_liquidator_services(
+pub async fn start_all_services(
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
@@ -39,24 +41,32 @@ pub async fn start_liquidator_services(
         run_cmd.apibara_api_key.unwrap(),
     );
 
-    println!("⏳ Waiting a few moment for the indexer to fetch positions...");
-    tokio::time::sleep(Duration::from_secs(15)).await;
+    println!("\n⏳ Waiting a few moment for the indexer to fetch positions...\n");
 
-    println!("\n🧩 Starting the monitoring service...");
+    let latest_oracle_prices = LatestOraclePrices::from_config(&config);
+    println!("\n🧩 Starting the oracle service...");
+    let oracle_handle = start_oracle_service(
+        run_cmd.pragma_api_base_url,
+        run_cmd.pragma_api_key.unwrap(),
+        latest_oracle_prices.clone(),
+    );
+
+    println!("\n🧩 Starting the monitoring service...\n");
     let monitoring_handle = start_monitoring_service(
         config.clone(),
         rpc_client.clone(),
         account,
-        run_cmd.pragma_api_base_url,
-        run_cmd.pragma_api_key.unwrap(),
         position_receiver,
+        latest_oracle_prices,
     );
 
-    // Wait for both tasks to complete, and handle any errors
-    let (indexer_result, monitoring_result) = tokio::try_join!(indexer_handle, monitoring_handle)?;
+    // Wait for tasks to complete, and handle any errors
+    let (indexer_result, oracle_result, monitoring_result) =
+        tokio::try_join!(indexer_handle, oracle_handle, monitoring_handle)?;
 
-    // Handle results from both services
+    // Handle results
     indexer_result?;
+    oracle_result?;
     monitoring_result?;
     Ok(())
 }
@@ -85,22 +95,37 @@ fn start_indexer_service(
     })
 }
 
+/// Starts the oracle service.
+fn start_oracle_service(
+    pragma_api_base_url: Url,
+    pragma_api_key: String,
+    latest_oracle_prices: LatestOraclePrices,
+) -> JoinHandle<Result<()>> {
+    let oracle_service =
+        OracleService::new(pragma_api_base_url, pragma_api_key, latest_oracle_prices);
+
+    tokio::spawn(async move {
+        oracle_service
+            .start()
+            .await
+            .context("😱 Oracle service error")
+    })
+}
+
 /// Starts the monitoring service.
 fn start_monitoring_service(
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
-    pragma_api_base_url: Url,
-    pragma_api_key: String,
     position_receiver: Receiver<Position>,
+    latest_oracle_prices: LatestOraclePrices,
 ) -> JoinHandle<Result<()>> {
     let monitoring_service = MonitoringService::new(
         config,
         rpc_client,
         account,
-        pragma_api_base_url,
-        pragma_api_key,
         position_receiver,
+        latest_oracle_prices,
     );
 
     tokio::spawn(async move {
