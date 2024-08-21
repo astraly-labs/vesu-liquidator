@@ -30,7 +30,7 @@ impl PragmaOracle {
             api_url,
             api_key,
             aggregation_method: AggregationMethod::Median,
-            interval: Interval::OneHour,
+            interval: Interval::OneMinute,
         }
     }
 }
