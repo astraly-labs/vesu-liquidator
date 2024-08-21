@@ -3,7 +3,7 @@ pub mod monitoring;
 pub mod oracle;
 
 use oracle::{LatestOraclePrices, OracleService};
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use url::Url;
 
 use anyhow::{Context, Result};
@@ -41,8 +41,9 @@ pub async fn start_all_services(
         run_cmd.apibara_api_key.unwrap(),
     );
 
-    let latest_oracle_prices = LatestOraclePrices::from_config(&config);
+    println!("\n⏳ Waiting a few moment for the indexer to fetch positions...\n");
 
+    let latest_oracle_prices = LatestOraclePrices::from_config(&config);
     println!("\n🧩 Starting the oracle service...");
     let oracle_handle = start_oracle_service(
         run_cmd.pragma_api_base_url,
@@ -50,10 +51,7 @@ pub async fn start_all_services(
         latest_oracle_prices.clone(),
     );
 
-    println!("\n⏳ Waiting a few moment for the indexer to fetch positions...\n");
-    tokio::time::sleep(Duration::from_secs(15)).await;
-
-    println!("\n🧩 Starting the monitoring service...");
+    println!("\n🧩 Starting the monitoring service...\n");
     let monitoring_handle = start_monitoring_service(
         config.clone(),
         rpc_client.clone(),

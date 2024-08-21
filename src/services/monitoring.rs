@@ -66,13 +66,7 @@ impl MonitoringService {
                 maybe_position = self.positions_receiver.recv() => {
                     match maybe_position {
                         Some(new_position) => {
-                            let mut positions = self.positions.0.write().await;
-                            positions.insert(new_position.key(), new_position);
-                            // Drain and process any additional positions in the queue
-                            while let Ok(new_position) = self.positions_receiver.try_recv() {
-                                positions.insert(new_position.key(), new_position);
-                            }
-                            println!("[🔭 Monitoring] Added position, total {}", self.positions.len().await)
+                            self.positions.0.write().await.insert(new_position.key(), new_position);
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));

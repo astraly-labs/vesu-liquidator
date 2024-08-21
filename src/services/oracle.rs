@@ -4,6 +4,7 @@ use std::{collections::HashMap, time::Duration};
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use futures_util::future::join_all;
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use tokio::sync::Mutex;
@@ -11,7 +12,7 @@ use url::Url;
 
 use crate::{config::Config, utils::conversions::hexa_price_to_big_decimal};
 
-pub const USD_ASSET: &str = "usd";
+const USD_ASSET: &str = "usd";
 pub const PRICES_UPDATE_INTERVAL: u64 = 60; // update every minutes
 
 pub struct OracleService {
@@ -40,9 +41,8 @@ impl OracleService {
 
     /// Update all the monitored assets with their latest USD price asynchronously.
     async fn update_prices(&self) -> Result<()> {
-        let prices = self.latest_prices.0.lock().await;
+        let mut prices = self.latest_prices.0.lock().await;
         let assets: Vec<String> = prices.keys().cloned().collect();
-        drop(prices); // Release the lock before starting async operations
 
         let fetch_tasks = assets.into_iter().map(|asset| {
             let oracle = self.oracle.clone();
@@ -54,7 +54,6 @@ impl OracleService {
 
         let results = join_all(fetch_tasks).await;
 
-        let mut prices = self.latest_prices.0.lock().await;
         for (asset, price_result) in results {
             if let Ok(price) = price_result {
                 prices.insert(asset, price);
@@ -72,7 +71,7 @@ impl LatestOraclePrices {
     pub fn from_config(config: &Config) -> Self {
         let mut prices = HashMap::new();
         for asset in config.assets.iter() {
-            prices.insert(asset.ticker.clone(), BigDecimal::default());
+            prices.insert(asset.ticker.to_lowercase(), BigDecimal::default());
         }
         LatestOraclePrices(Arc::new(Mutex::new(prices)))
     }
@@ -108,7 +107,7 @@ impl PragmaOracle {
 impl PragmaOracle {
     pub fn fetch_price_url(&self, base: String, quote: String) -> String {
         format!(
-            "{}node/v1/data/{}/{}?interval={}&aggregation={}",
+            "{}node/v1/onchain/{}/{}?network=sepolia&components=false&variations=false&interval={}&aggregation={}",
             self.api_url, base, quote, self.interval, self.aggregation_method
         )
     }
@@ -116,18 +115,17 @@ impl PragmaOracle {
     // TODO: Fix oracle timeout response with a retry
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
         let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
-        println!("{}", url);
         let response = self
             .http_client
             .get(url)
             .header("x-api-key", &self.api_key)
             .send()
             .await?;
-        if response.status() != 200 {
-            println!("⛔ Oracle Request failed with: {:?}", response.text().await);
-            panic!("Exiting.");
-        }
+        let response_status = response.status();
         let response_text = response.text().await?;
+        if response_status != StatusCode::OK {
+            println!("⛔ Oracle Request failed with: {:?}", response_text);
+        }
         let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
         Ok(hexa_price_to_big_decimal(
             oracle_response.price.as_str(),

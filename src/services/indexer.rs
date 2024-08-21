@@ -27,6 +27,7 @@ use crate::{
 };
 
 const INDEXING_STREAM_CHUNK_SIZE: usize = 1024;
+const ETHEREUM_DECIMALS: i64 = 18;
 
 pub struct IndexerService {
     config: Config,
@@ -204,7 +205,7 @@ impl IndexerService {
             .await?;
 
         // Decimals is always 18 for the ltv_config response
-        position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), 18);
+        position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), ETHEREUM_DECIMALS);
         Ok(position)
     }
 }
