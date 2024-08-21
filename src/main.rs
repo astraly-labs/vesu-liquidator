@@ -1,6 +1,5 @@
 pub mod cli;
 pub mod config;
-pub mod oracle;
 pub mod services;
 pub mod types;
 pub mod utils;
@@ -16,7 +15,7 @@ use starknet::{
 
 use cli::{NetworkName, RunCmd};
 use config::Config;
-use services::start_liquidator_services;
+use services::start_all_services;
 use types::account::StarknetAccount;
 
 fn print_app_title(account_address: Felt, network: NetworkName, starting_block: u64) {
@@ -52,5 +51,5 @@ async fn main() -> Result<()> {
     let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));
     let account = StarknetAccount::from_cli(rpc_client.clone(), run_cmd.clone())?;
 
-    start_liquidator_services(config, rpc_client, account, run_cmd).await
+    start_all_services(config, rpc_client, account, run_cmd).await
 }

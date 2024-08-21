@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -34,6 +35,7 @@ pub struct IndexerService {
     apibara_api_key: String,
     stream_config: Configuration<Filter>,
     positions_sender: Sender<Position>,
+    seen_positions: HashSet<u64>,
 }
 
 impl IndexerService {
@@ -70,11 +72,12 @@ impl IndexerService {
             apibara_api_key,
             stream_config,
             positions_sender,
+            seen_positions: HashSet::default(),
         }
     }
 
     /// Retrieve all the ModifyPosition events emitted from the Vesu Singleton Contract.
-    pub async fn start(self) -> Result<()> {
+    pub async fn start(mut self) -> Result<()> {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
 
         config_client
@@ -132,7 +135,7 @@ impl IndexerService {
     }
 
     /// Index the provided event & creates a new position.
-    async fn create_position_from_event(&self, event: Event) -> Result<()> {
+    async fn create_position_from_event(&mut self, event: Event) -> Result<()> {
         if event.from_address.is_none() {
             return Ok(());
         }
@@ -148,6 +151,10 @@ impl IndexerService {
             new_position = self.update_position(new_position).await?;
             if new_position.is_closed() {
                 return Ok(());
+            }
+            let position_key = new_position.key();
+            if self.seen_positions.insert(position_key) {
+                println!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
             }
             let _ = self.positions_sender.try_send(new_position);
         }

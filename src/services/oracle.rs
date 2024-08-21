@@ -1,12 +1,83 @@
+use std::sync::Arc;
+use std::{collections::HashMap, time::Duration};
+
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
 use strum::Display;
+use tokio::sync::Mutex;
+use tokio::time::interval;
 use url::Url;
 
-use crate::utils::conversions::hexa_price_to_big_decimal;
+use crate::{config::Config, utils::conversions::hexa_price_to_big_decimal};
 
 pub const USD_ASSET: &str = "usd";
+pub const PRICES_UPDATE_INTERVAL: u64 = 55;
+
+pub struct OracleService {
+    oracle: PragmaOracle,
+    latest_prices: LatestOraclePrices,
+}
+
+impl OracleService {
+    pub fn new(api_url: Url, api_key: String, latest_prices: LatestOraclePrices) -> Self {
+        let oracle = PragmaOracle::new(api_url, api_key);
+        Self {
+            oracle,
+            latest_prices,
+        }
+    }
+
+    pub async fn start(self) -> Result<()> {
+        // Initial fetching of all prices
+        println!("[🔮 Oracle] Fetching latest prices...");
+        self.update_prices().await?;
+        println!("[🔮 Oracle] Fetched!");
+
+        let mut update_interval = interval(Duration::from_secs(PRICES_UPDATE_INTERVAL));
+        loop {
+            tokio::select! {
+                _ = update_interval.tick() => {
+                    println!("[🔮 Oracle] Fetching latest prices...");
+                    self.update_prices().await?;
+                    println!("[🔮 Oracle] Fetched!");
+                }
+            }
+        }
+    }
+
+    /// Update all the monitored assets with their latest USD price.
+    async fn update_prices(&self) -> Result<()> {
+        let assets: Vec<String> = {
+            let prices = self.latest_prices.0.lock().await;
+            prices.keys().cloned().collect()
+        };
+
+        let mut updated_prices = HashMap::new();
+        for asset in assets {
+            if let Ok(price) = self.oracle.get_dollar_price(asset.clone()).await {
+                updated_prices.insert(asset, price);
+            }
+        }
+
+        let mut prices = self.latest_prices.0.lock().await;
+        prices.extend(updated_prices);
+        Ok(())
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct LatestOraclePrices(pub Arc<Mutex<HashMap<String, BigDecimal>>>);
+
+impl LatestOraclePrices {
+    pub fn from_config(config: &Config) -> Self {
+        let mut prices = HashMap::new();
+        for asset in config.assets.iter() {
+            prices.insert(asset.ticker.clone(), BigDecimal::default());
+        }
+        LatestOraclePrices(Arc::new(Mutex::new(prices)))
+    }
+}
 
 #[derive(Deserialize, Debug)]
 pub struct OracleApiResponse {
@@ -44,7 +115,6 @@ impl PragmaOracle {
     }
 
     // TODO: Fix oracle timeout response with a retry
-    // TODO: cache
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
         let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
         let response = self
