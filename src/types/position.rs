@@ -231,3 +231,144 @@ impl fmt::Display for Position {
         )
     }
 }
+
+
+#[cfg(test)]
+mod tests{
+    use bigdecimal::{num_bigint::BigInt, BigDecimal};
+    use mockall::{mock, predicate::eq};
+    use starknet::core::types::Felt;
+    use anyhow::Result;
+
+    use crate::types::{asset::Asset, position::Position};
+
+    mock! {
+        pub PragmaOracle {
+            pub async fn get_dollar_price(&self, asset_name: &str) -> Result<BigDecimal> ;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_position_ltv() {
+        let position = Position {
+            pool_id: Felt::from_hex("0x01").unwrap(),
+            collateral: Asset {
+                name: "ETH".to_string(),
+                amount: BigDecimal::from(1),
+                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                decimals: 18,
+            },
+            debt: Asset {
+                name: "USDC".to_string(),
+                amount: BigDecimal::from(500),
+                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                decimals: 6,
+            },
+            user_address: Felt::from_hex("0x05").unwrap(),
+            lltv: BigDecimal::new(BigInt::from(5), 1),
+        };
+
+        let mut mock_oracle = MockPragmaOracle::new();
+        mock_oracle
+            .expect_get_dollar_price()
+            .with(eq("eth"))
+            .returning(|_| { Ok(BigDecimal::from(2000)) });
+        mock_oracle
+            .expect_get_dollar_price()
+            .with(eq("dai"))
+            .returning(|_| { Ok(BigDecimal::from(1)) });
+
+        let ltv = position.ltv(&mock_oracle).await.unwrap();
+        assert_eq!(ltv, BigDecimal::new(BigInt::from(25),2));
+    }
+
+    #[tokio::test]
+    async fn test_position_is_liquidatable() {
+        let position = Position {
+            pool_id: Felt::from_hex("0x01").unwrap(),
+            collateral: Asset {
+                name: "ETH".to_string(),
+                amount: BigDecimal::from(1),
+                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                decimals: 18,
+            },
+            debt: Asset {
+                name: "USDC".to_string(),
+                amount: BigDecimal::from(600),
+                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                decimals: 6,
+            },
+            user_address: Felt::from_hex("0x05").unwrap(),
+            lltv: BigDecimal::new(BigInt::from(5), 1),
+        };
+
+        let mut mock_oracle = MockPragmaOracle::new();
+        mock_oracle
+            .expect_get_dollar_price()
+            .with(eq("eth"))
+            .returning(|_| { Ok(BigDecimal::from(2000)) });
+        mock_oracle
+            .expect_get_dollar_price()
+            .with(eq("usdc"))
+            .returning(|_| { Ok(BigDecimal::from(1)) });
+
+        assert!(position.is_liquidable(&mock_oracle).await);
+    }
+
+    #[tokio::test]
+    async fn test_position_is_closed() {
+        let position = Position {
+            pool_id: Felt::from_hex("0x01").unwrap(),
+            collateral: Asset {
+                name: "ETH".to_string(),
+                amount: BigDecimal::from(0),
+                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                decimals: 18,
+            },
+            debt: Asset {
+                name: "USDC".to_string(),
+                amount: BigDecimal::from(0),
+                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                decimals: 6,
+            },
+            user_address: Felt::from_hex("0x05").unwrap(),
+            lltv: BigDecimal::new(BigInt::from(5), 1),
+        };
+
+        assert!(position.is_closed());
+    }
+
+    #[tokio::test]
+    async fn test_position_liquidable_amount() {
+        let position = Position {
+            pool_id: Felt::from_hex("0x01").unwrap(),
+            collateral: Asset {
+                name: "ETH".to_string(),
+                amount: BigDecimal::from(1),
+                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                decimals: 18,
+            },
+            debt: Asset {
+                name: "USDC".to_string(),
+                amount: BigDecimal::from(750),
+                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                decimals: 6,
+            },
+            user_address: Felt::from_hex("0x05").unwrap(),
+            lltv: BigDecimal::new(BigInt::from(5), 1),
+        };
+
+        let mut mock_oracle = MockPragmaOracle::new();
+        mock_oracle
+            .expect_get_dollar_price()
+            .with(eq("eth"))
+            .returning(|_| { Ok(BigDecimal::from(2000)) });
+        mock_oracle
+            .expect_get_dollar_price()
+            .with(eq("usdc"))
+            .returning(|_| { Ok(BigDecimal::from(1)) });
+
+        let liquidable_amount = position.liquidable_amount(&mock_oracle).await.unwrap();
+        assert_eq!(liquidable_amount, BigDecimal::from(250) * BigDecimal::new(BigInt::from(102), 2));
+    }
+}
