@@ -91,7 +91,9 @@ impl MonitoringService {
         }
         println!("\n🔎 Checking if any position is liquidable...");
         for (_, position) in monitored_positions.iter() {
-            self.try_to_liquidate_position(position).await?;
+            if position.is_liquidable(&self.pragma_oracle).await {
+                let _profit_made = self.try_to_liquidate_position(position).await?;
+            }
         }
         println!("🤨 They're good.. for now...");
         Ok(())
@@ -100,9 +102,6 @@ impl MonitoringService {
     /// Check if a position is liquidable, computes the profitability and if it's worth it
     /// liquidate it.
     async fn try_to_liquidate_position(&self, position: &Position) -> Result<BigDecimal> {
-        if !position.is_liquidable(&self.pragma_oracle).await {
-            return Ok(BigDecimal::from(0));
-        }
         let (profit, txs) = self.compute_profitability(position).await?;
         // TODO: Support minimum profit value with a default & from CLI
         if profit > BigDecimal::from(0) {

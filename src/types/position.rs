@@ -19,8 +19,8 @@ use crate::{
     utils::conversions::apibara_field_element_as_felt,
 };
 
-// Thread-safe wrapper around the positions.
-// PositionsMap is a map between position key <=> position.
+/// Thread-safe wrapper around the positions.
+/// PositionsMap is a map between position position_key <=> position.
 pub struct PositionsMap(pub Arc<RwLock<HashMap<u64, Position>>>);
 
 impl PositionsMap {

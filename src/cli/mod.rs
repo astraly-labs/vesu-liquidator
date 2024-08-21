@@ -8,8 +8,9 @@ use strum::Display;
 
 use account::AccountParams;
 
-fn parse_url(s: &str) -> Result<Url, url::ParseError> {
+fn parse_url(s: &str) -> Result<Url> {
     s.parse()
+        .map_err(|_| anyhow!("Could not convert {s} to Url"))
 }
 
 #[derive(Clone, Debug, clap::Parser)]
