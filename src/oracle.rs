@@ -2,6 +2,7 @@ use anyhow::Result;
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
 use strum::Display;
+use url::Url;
 
 use crate::utils::conversions::hexa_price_to_big_decimal;
 
@@ -16,20 +17,19 @@ pub struct OracleApiResponse {
 #[derive(Debug, Clone)]
 pub struct PragmaOracle {
     http_client: reqwest::Client,
-    pub api_url: String,
+    pub api_url: Url,
     pub api_key: String,
     pub aggregation_method: AggregationMethod,
     pub interval: Interval,
 }
 
 impl PragmaOracle {
-    pub fn new(api_url: String, api_key: String) -> Self {
+    pub fn new(api_url: Url, api_key: String) -> Self {
         Self {
             http_client: reqwest::Client::new(),
             api_url,
             api_key,
             aggregation_method: AggregationMethod::Median,
-            // TODO: Assert that we want OneMinute
             interval: Interval::OneMinute,
         }
     }
@@ -43,6 +43,8 @@ impl PragmaOracle {
         )
     }
 
+    // TODO: Fix oracle timeout response with a retry
+    // TODO: cache
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
         let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
         let response = self

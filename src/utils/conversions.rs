@@ -16,10 +16,11 @@ pub fn felt_as_apibara_field(value: &Felt) -> FieldElement {
 }
 
 /// Converts an Apibara core FieldElement into a Felt from starknet-rs.
-pub fn apibara_field_element_as_felt(value: &FieldElement) -> Felt {
+pub fn apibara_field_as_felt(value: &FieldElement) -> Felt {
     Felt::from_bytes_be(&value.to_bytes())
 }
 
+/// Converts a BigDecimal to a U256.
 pub fn big_decimal_to_u256(value: BigDecimal) -> U256 {
     let (amount, _): (BigInt, _) = value.as_bigint_and_exponent();
     U256::from(Felt::from(amount.clone()))

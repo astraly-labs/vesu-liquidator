@@ -1,8 +1,8 @@
 use std::{sync::Arc, time::Duration};
+use url::Url;
 
 use anyhow::{anyhow, Result};
 use bigdecimal::BigDecimal;
-use lazy_static::lazy_static;
 use starknet::{
     accounts::Call,
     core::types::{Felt, TransactionFinalityStatus},
@@ -19,10 +19,6 @@ use crate::{
         position::{Position, PositionsMap},
     },
 };
-
-lazy_static! {
-    pub static ref MINIMUM_ACCEPTED_PROFIT: BigDecimal = BigDecimal::from(0);
-}
 
 const CHECK_POSITIONS_INTERVAL: u64 = 10;
 const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
@@ -42,7 +38,7 @@ impl MonitoringService {
         config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         account: StarknetAccount,
-        pragma_api_base_url: String,
+        pragma_api_base_url: Url,
         pragma_api_key: String,
         positions_receiver: Receiver<Position>,
     ) -> MonitoringService {
@@ -95,7 +91,9 @@ impl MonitoringService {
         }
         println!("\n🔎 Checking if any position is liquidable...");
         for (_, position) in monitored_positions.iter() {
-            self.try_to_liquidate_position(position).await?;
+            if position.is_liquidable(&self.pragma_oracle).await {
+                let _profit_made = self.try_to_liquidate_position(position).await?;
+            }
         }
         println!("🤨 They're good.. for now...");
         Ok(())
@@ -104,11 +102,9 @@ impl MonitoringService {
     /// Check if a position is liquidable, computes the profitability and if it's worth it
     /// liquidate it.
     async fn try_to_liquidate_position(&self, position: &Position) -> Result<BigDecimal> {
-        if !position.is_liquidable(&self.pragma_oracle).await {
-            return Ok(BigDecimal::from(0));
-        }
         let (profit, txs) = self.compute_profitability(position).await?;
-        if profit > *MINIMUM_ACCEPTED_PROFIT {
+        // TODO: Support minimum profit value with a default & from CLI
+        if profit > BigDecimal::from(0) {
             let tx_hash_felt = self.account.execute_txs(&txs).await?;
             let tx_hash = tx_hash_felt.to_string();
             self.wait_for_tx_to_be_accepted(&tx_hash).await?;

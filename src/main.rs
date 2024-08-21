@@ -9,13 +9,14 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{NetworkName, RunCmd};
-use config::Config;
-use services::start_liquidator_services;
 use starknet::{
     core::types::Felt,
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
 };
+
+use cli::{NetworkName, RunCmd};
+use config::Config;
+use services::start_liquidator_services;
 use types::account::StarknetAccount;
 
 fn print_app_title(account_address: Felt, network: NetworkName, starting_block: u64) {

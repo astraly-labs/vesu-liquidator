@@ -13,12 +13,13 @@ pub struct Asset {
 
 impl Asset {
     pub fn from_address(config: &Config, address: Felt) -> Option<Self> {
-        let name = config.get_asset_name_for_address(&address);
+        let name = config.get_asset_ticker_for_address(&address);
         let decimals = config.get_decimal_for_address(&address);
-        if name.is_none() || decimals.is_none() {
-            return None;
+
+        match (name, decimals) {
+            (Some(name), Some(decimals)) => Some(Self::new(name, address, decimals)),
+            _ => None,
         }
-        Some(Self::new(name.unwrap(), address, decimals.unwrap()))
     }
 
     pub fn new(name: String, address: Felt, decimals: i64) -> Self {

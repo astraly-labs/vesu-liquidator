@@ -18,9 +18,6 @@ pub struct StarknetAccount(
     pub Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>,
 );
 
-// TODO: Create an Account builder to be able to configure:
-// - the chain
-// - the method of creation (keystore, raw key...)
 impl StarknetAccount {
     /// Creates a StarknetAccount from the CLI args
     pub fn from_cli(
@@ -99,7 +96,8 @@ impl StarknetAccountBuilder {
     }
 
     pub fn from_secret(self, private_key: Felt) -> Result<StarknetAccount> {
-        let signer = LocalWallet::from(SigningKey::from_secret_scalar(private_key));
+        let signing_key = SigningKey::from_secret_scalar(private_key);
+        let signer = LocalWallet::from(signing_key);
         self.build(signer)
     }
 
@@ -108,8 +106,8 @@ impl StarknetAccountBuilder {
         keystore_path: PathBuf,
         keystore_password: &str,
     ) -> Result<StarknetAccount> {
-        let signer =
-            LocalWallet::from(SigningKey::from_keystore(keystore_path, keystore_password)?);
+        let signing_key = SigningKey::from_keystore(keystore_path, keystore_password)?;
+        let signer = LocalWallet::from(signing_key);
         self.build(signer)
     }
 

@@ -1,6 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use apibara_core::starknet::v1alpha2::Event;
+use apibara_core::{
+    node::v1alpha2::DataFinality,
+    starknet::v1alpha2::{Block, Filter, HeaderFilter},
+};
+use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
 use bigdecimal::BigDecimal;
 use futures_util::TryStreamExt;
 use starknet::core::types::Felt;
@@ -10,19 +16,13 @@ use starknet::{
 };
 use tokio::sync::mpsc::Sender;
 
-use apibara_core::{
-    node::v1alpha2::DataFinality,
-    starknet::v1alpha2::{Block, Filter, HeaderFilter},
-};
-use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
-
 use crate::cli::NetworkName;
 use crate::config::{
     Config, MODIFY_POSITION_EVENT, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
 };
 use crate::{
     types::position::Position,
-    utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field},
+    utils::conversions::{apibara_field_as_felt, felt_as_apibara_field},
 };
 
 const INDEXING_STREAM_CHUNK_SIZE: usize = 1024;
@@ -44,7 +44,7 @@ impl IndexerService {
         positions_sender: Sender<Position>,
         from_block: u64,
     ) -> IndexerService {
-        let uri: Uri = match config.network {
+        let uri = match config.network {
             NetworkName::Mainnet => Uri::from_static("https://mainnet.starknet.a5a.ch"),
             NetworkName::Sepolia => Uri::from_static("https://sepolia.starknet.a5a.ch"),
         };
@@ -52,7 +52,6 @@ impl IndexerService {
         let stream_config = Configuration::<Filter>::default()
             .with_starting_block(from_block)
             .with_finality(DataFinality::DataStatusPending)
-            // TODO: Filter does not seem to do anything. Done manually; investigate
             .with_filter(|mut filter| {
                 filter
                     .with_header(HeaderFilter::weak())
@@ -77,6 +76,7 @@ impl IndexerService {
     /// Retrieve all the ModifyPosition events emitted from the Vesu Singleton Contract.
     pub async fn start(self) -> Result<()> {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
+
         config_client
             .send(self.stream_config.clone())
             .await
@@ -100,31 +100,10 @@ impl IndexerService {
                         finality: _,
                         batch,
                     } => {
-                        // TODO: Way better filtering :)
                         for block in batch {
-                            for events_chunk in block.events {
-                                for event in events_chunk.receipt.unwrap().events {
-                                    // TODO: Currently hand filtered :)
-                                    let from =
-                                        apibara_field_element_as_felt(&event.from_address.unwrap());
-                                    if from != self.config.singleton_address {
-                                        continue;
-                                    }
-                                    let first = apibara_field_element_as_felt(&event.keys[0]);
-                                    if first != MODIFY_POSITION_EVENT.to_owned() {
-                                        continue;
-                                    }
-                                    let third = apibara_field_element_as_felt(&event.keys[3]);
-                                    if third == Felt::ZERO {
-                                        continue;
-                                    }
-                                    // Create the new position & update the fields.
-                                    if let Some(mut new_position) =
-                                        Position::from_event(&self.config, &event.keys)
-                                    {
-                                        new_position = self.update_position(new_position).await?;
-                                        let _ = self.positions_sender.try_send(new_position);
-                                    }
+                            for event in block.events {
+                                if let Some(event) = event.event {
+                                    self.create_position_from_event(event).await?;
                                 }
                             }
                         }
@@ -150,6 +129,29 @@ impl IndexerService {
                 }
             }
         }
+    }
+
+    /// Index the provided event & creates a new position.
+    async fn create_position_from_event(&self, event: Event) -> Result<()> {
+        if event.from_address.is_none() {
+            return Ok(());
+        }
+
+        let debt_address = apibara_field_as_felt(&event.keys[3]);
+        // Corresponds to event associated with the extension contract - we ignore them.
+        if debt_address == Felt::ZERO {
+            return Ok(());
+        }
+
+        // Create the new position & update the fields.
+        if let Some(mut new_position) = Position::from_event(&self.config, &event.keys) {
+            new_position = self.update_position(new_position).await?;
+            if new_position.is_closed() {
+                return Ok(());
+            }
+            let _ = self.positions_sender.try_send(new_position);
+        }
+        Ok(())
     }
 
     /// Update a position given the latest data available.
