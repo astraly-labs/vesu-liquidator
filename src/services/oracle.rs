@@ -6,7 +6,6 @@ use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use tokio::sync::Mutex;
-use tokio::time::interval;
 use url::Url;
 
 use crate::{config::Config, utils::conversions::hexa_price_to_big_decimal};
@@ -29,20 +28,12 @@ impl OracleService {
     }
 
     pub async fn start(self) -> Result<()> {
-        // Initial fetching of all prices
-        println!("[🔮 Oracle] Fetching latest prices...");
-        self.update_prices().await?;
-        println!("[🔮 Oracle] Fetched!");
-
-        let mut update_interval = interval(Duration::from_secs(PRICES_UPDATE_INTERVAL));
+        let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
-            tokio::select! {
-                _ = update_interval.tick() => {
-                    println!("[🔮 Oracle] Fetching latest prices...");
-                    self.update_prices().await?;
-                    println!("[🔮 Oracle] Fetched!");
-                }
-            }
+            println!("[🔮 Oracle] Fetching latest prices...");
+            self.update_prices().await?;
+            println!("[🔮 Oracle] Fetched!");
+            tokio::time::sleep(sleep_duration).await;
         }
     }
 
