@@ -1,6 +1,5 @@
 use anyhow::Result;
 use apibara_core::starknet::v1alpha2::FieldElement;
-use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
 use starknet::accounts::Call;
@@ -13,6 +12,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::config::Config;
+use crate::utils::apply_overhead;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
     config::LIQUIDATE_SELECTOR, oracle::PragmaOracle, types::asset::Asset,
@@ -46,12 +46,6 @@ pub struct Position {
     pub collateral: Asset,
     pub debt: Asset,
     pub lltv: BigDecimal,
-}
-
-fn apply_overhead(num: BigDecimal) -> BigDecimal {
-    // we apply overhead of 2% as in vesu frontend
-    let overhead_to_apply = BigDecimal::new(BigInt::from(102), 2);
-    num * overhead_to_apply
 }
 
 impl Position {
@@ -193,11 +187,11 @@ impl Position {
                 self.debt.address,       // debt_asset
                 self.user_address,       // user
                 Felt::ZERO,              // receive_as_shares
-                Felt::from(4),           // number of elements below
+                Felt::from(4),           // number of elements below (two U256, low/high)
                 Felt::ZERO,              // min_collateral (U256)
                 Felt::ZERO,
-                Felt::from(debt_to_repay.low()),  // debt
-                Felt::from(debt_to_repay.high()), // debt
+                Felt::from(debt_to_repay.low()), // debt (U256)
+                Felt::from(debt_to_repay.high()),
             ],
         };
 

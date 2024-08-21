@@ -9,6 +9,7 @@ use starknet::core::utils::get_selector_from_name;
 
 use crate::cli::{NetworkName, RunCmd};
 
+// Contract selectors
 lazy_static! {
     pub static ref MODIFY_POSITION_EVENT: Felt = get_selector_from_name("ModifyPosition").unwrap();
     pub static ref VESU_POSITION_UNSAFE_SELECTOR: Felt =
@@ -83,7 +84,7 @@ impl Config {
     }
 }
 
-/// Below are the structs that represents the raw config extracted from the yaml file.
+// Below are the structs that represents the raw config extracted from the yaml file.
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RawConfig {

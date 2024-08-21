@@ -1,10 +1,10 @@
 pub mod account;
 
 use std::{env, path::PathBuf};
+use url::Url;
 
 use anyhow::{anyhow, Result};
 use strum::Display;
-use url::Url;
 
 use account::AccountParams;
 
@@ -47,8 +47,11 @@ pub struct RunCmd {
     pub pragma_api_key: Option<String>,
 }
 
+/// First blocks with Vesu activity. Not necessary to index before.
+const FIRST_MAINNET_BLOCK: u64 = 654244;
+const FIRST_SEPOLIA_BLOCK: u64 = 77860;
+
 impl RunCmd {
-    /// Validate CLI arguments
     pub fn validate(&mut self) -> Result<()> {
         self.account_params.validate()?;
         if self.pragma_api_key.is_none() {
@@ -57,11 +60,21 @@ impl RunCmd {
         if self.apibara_api_key.is_none() {
             self.apibara_api_key = env::var("APIBARA_API_KEY").ok();
         }
-        if self.pragma_api_key.is_none() && self.apibara_api_key.is_none() {
-            return Err(anyhow!("Both Pragma API Key and Apibara API Key are missing. Please provide at least one either via command line arguments or environment variables."));
+        if self.pragma_api_key.is_none() || self.apibara_api_key.is_none() {
+            return Err(anyhow!("Pragma API Key or Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."));
         }
-        if self.starting_block < 654244 {
-            self.starting_block = 654244;
+
+        match self.network {
+            NetworkName::Mainnet => {
+                if self.starting_block <= FIRST_MAINNET_BLOCK {
+                    self.starting_block = FIRST_MAINNET_BLOCK;
+                }
+            }
+            NetworkName::Sepolia => {
+                if self.starting_block <= FIRST_SEPOLIA_BLOCK {
+                    self.starting_block = FIRST_SEPOLIA_BLOCK;
+                }
+            }
         }
         Ok(())
     }
