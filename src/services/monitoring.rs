@@ -12,9 +12,12 @@ use tokio::sync::mpsc::Receiver;
 use tokio::time::interval;
 
 use crate::{
+    config::Config,
     oracle::PragmaOracle,
-    types::account::StarknetAccount,
-    types::position::{Position, PositionsMap},
+    types::{
+        account::StarknetAccount,
+        position::{Position, PositionsMap},
+    },
 };
 
 lazy_static! {
@@ -26,6 +29,7 @@ const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 const INTERVAL_CHECK_TX_FINALITY: u64 = 3;
 
 pub struct MonitoringService {
+    pub config: Config,
     pub rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     pub account: StarknetAccount,
     pub pragma_oracle: Arc<PragmaOracle>,
@@ -35,6 +39,7 @@ pub struct MonitoringService {
 
 impl MonitoringService {
     pub fn new(
+        config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         account: StarknetAccount,
         pragma_api_base_url: String,
@@ -42,6 +47,7 @@ impl MonitoringService {
         positions_receiver: Receiver<Position>,
     ) -> MonitoringService {
         MonitoringService {
+            config,
             rpc_client,
             account,
             pragma_oracle: Arc::new(PragmaOracle::new(pragma_api_base_url, pragma_api_key)),
@@ -120,7 +126,8 @@ impl MonitoringService {
     async fn compute_profitability(&self, position: &Position) -> Result<(BigDecimal, Vec<Call>)> {
         let liquidable_amount = position.liquidable_amount(&self.pragma_oracle).await?;
 
-        let liquidation_txs = position.get_liquidation_txs(liquidable_amount.clone());
+        let liquidation_txs =
+            position.get_liquidation_txs(self.config.singleton_address, liquidable_amount.clone());
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
         Ok((liquidable_amount - execution_fees, liquidation_txs))

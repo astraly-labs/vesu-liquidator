@@ -1,6 +1,6 @@
 pub mod account;
 
-use std::env;
+use std::{env, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use strum::Display;
@@ -25,6 +25,10 @@ pub struct RunCmd {
     /// The rpc endpoint url.
     #[clap(long, value_parser = parse_url, value_name = "RPC URL")]
     pub rpc_url: Url,
+
+    /// Configuration file path.
+    #[clap(long, default_value = "config.yaml", value_name = "VESU CONFIG PATH")]
+    pub config_path: Option<PathBuf>,
 
     /// The block you want to start syncing from.
     #[clap(long, short, value_name = "BLOCK NUMBER")]

@@ -10,6 +10,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use cli::{NetworkName, RunCmd};
+use config::Config;
 use services::start_liquidator_services;
 use starknet::{
     core::types::Felt,
@@ -44,10 +45,11 @@ async fn main() -> Result<()> {
         run_cmd.starting_block,
     );
 
-    let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(
-        run_cmd.rpc_url.clone(),
-    )));
-    let account = StarknetAccount::from_cli(Arc::clone(&rpc_client), run_cmd.clone())?;
+    let config = Config::from_cli(&run_cmd)?;
 
-    start_liquidator_services(rpc_client, account, run_cmd).await
+    let rpc_url = run_cmd.rpc_url.clone();
+    let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));
+    let account = StarknetAccount::from_cli(rpc_client.clone(), run_cmd.clone())?;
+
+    start_liquidator_services(config, rpc_client, account, run_cmd).await
 }

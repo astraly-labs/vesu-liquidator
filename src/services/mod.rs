@@ -9,23 +9,27 @@ use tokio::sync::mpsc;
 
 use crate::{
     cli::RunCmd,
+    config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
     types::{account::StarknetAccount, position::Position},
 };
 
 pub async fn start_liquidator_services(
+    config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
     run_cmd: RunCmd,
 ) -> Result<()> {
     let (positions_sender, position_receiver) = mpsc::channel::<Position>(1024);
     let indexer_service = IndexerService::new(
+        config.clone(),
         Arc::clone(&rpc_client),
         run_cmd.apibara_api_key.unwrap(),
         positions_sender,
         run_cmd.starting_block,
     );
     let monitoring_service = MonitoringService::new(
+        config.clone(),
         Arc::clone(&rpc_client),
         account,
         run_cmd.pragma_api_base_url.to_string(),

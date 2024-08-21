@@ -16,18 +16,19 @@ use apibara_core::{
 };
 use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
 
+use crate::cli::NetworkName;
+use crate::config::{
+    Config, MODIFY_POSITION_EVENT, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
+};
 use crate::{
-    config::{
-        MODIFY_POSITION_EVENT, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
-        VESU_SINGLETON_CONTRACT,
-    },
     types::position::Position,
-    utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field_element},
+    utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field},
 };
 
-const INDEXING_STREAM_CHUNK_SIZE: usize = 128;
+const INDEXING_STREAM_CHUNK_SIZE: usize = 1024;
 
 pub struct IndexerService {
+    config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     uri: Uri,
     apibara_api_key: String,
@@ -37,13 +38,16 @@ pub struct IndexerService {
 
 impl IndexerService {
     pub fn new(
+        config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         apibara_api_key: String,
         positions_sender: Sender<Position>,
         from_block: u64,
     ) -> IndexerService {
-        // TODO: change if sepolia to https://sepolia.starknet.a5a.ch
-        let uri: Uri = Uri::from_static("https://mainnet.starknet.a5a.ch");
+        let uri: Uri = match config.network {
+            NetworkName::Mainnet => Uri::from_static("https://mainnet.starknet.a5a.ch"),
+            NetworkName::Sepolia => Uri::from_static("https://sepolia.starknet.a5a.ch"),
+        };
 
         let stream_config = Configuration::<Filter>::default()
             .with_starting_block(from_block)
@@ -54,15 +58,14 @@ impl IndexerService {
                     .with_header(HeaderFilter::weak())
                     .add_event(|event| {
                         event
-                            .with_from_address(felt_as_apibara_field_element(
-                                &VESU_SINGLETON_CONTRACT,
-                            ))
-                            .with_keys(vec![felt_as_apibara_field_element(&MODIFY_POSITION_EVENT)])
+                            .with_from_address(felt_as_apibara_field(&config.singleton_address))
+                            .with_keys(vec![felt_as_apibara_field(&MODIFY_POSITION_EVENT)])
                     })
                     .build()
             });
 
         IndexerService {
+            config,
             rpc_client,
             uri,
             apibara_api_key,
@@ -104,7 +107,7 @@ impl IndexerService {
                                     // TODO: Currently hand filtered :)
                                     let from =
                                         apibara_field_element_as_felt(&event.from_address.unwrap());
-                                    if from != VESU_SINGLETON_CONTRACT.to_owned() {
+                                    if from != self.config.singleton_address {
                                         continue;
                                     }
                                     let first = apibara_field_element_as_felt(&event.keys[0]);
@@ -116,9 +119,12 @@ impl IndexerService {
                                         continue;
                                     }
                                     // Create the new position & update the fields.
-                                    let mut new_position = Position::try_from_event(&event.keys)?;
-                                    new_position = self.update_position(new_position).await?;
-                                    let _ = self.positions_sender.try_send(new_position);
+                                    if let Some(mut new_position) =
+                                        Position::from_event(&self.config, &event.keys)
+                                    {
+                                        new_position = self.update_position(new_position).await?;
+                                        let _ = self.positions_sender.try_send(new_position);
+                                    }
                                 }
                             }
                         }
@@ -156,8 +162,8 @@ impl IndexerService {
     /// Update the position debt & collateral amount with the latest available data.
     async fn update_position_amounts(&self, mut position: Position) -> Result<Position> {
         let get_position_request = &FunctionCall {
-            contract_address: VESU_SINGLETON_CONTRACT.to_owned(),
-            entry_point_selector: VESU_POSITION_UNSAFE_SELECTOR.to_owned(),
+            contract_address: self.config.singleton_address,
+            entry_point_selector: *VESU_POSITION_UNSAFE_SELECTOR,
             calldata: position.as_update_calldata(),
         };
         let result = self
@@ -175,8 +181,8 @@ impl IndexerService {
     /// Update the LLTV with the latest available data.
     async fn update_position_lltv(&self, mut position: Position) -> Result<Position> {
         let ltv_config_request = &FunctionCall {
-            contract_address: VESU_SINGLETON_CONTRACT.to_owned(),
-            entry_point_selector: VESU_LTV_CONFIG_SELECTOR.to_owned(),
+            contract_address: self.config.singleton_address,
+            entry_point_selector: *VESU_LTV_CONFIG_SELECTOR,
             calldata: position.as_ltv_calldata(),
         };
 
