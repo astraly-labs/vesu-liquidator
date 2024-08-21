@@ -3274,6 +3274,7 @@ dependencies = [
  "starknet 0.11.0",
  "strum",
  "tokio",
+ "tracing",
  "url",
 ]
 

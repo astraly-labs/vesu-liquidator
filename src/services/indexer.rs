@@ -81,6 +81,8 @@ impl IndexerService {
     pub async fn start(mut self) -> Result<()> {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
 
+        let mut reached_pending_block: bool = false;
+
         config_client
             .send(self.stream_config.clone())
             .await
@@ -101,9 +103,15 @@ impl IndexerService {
                     apibara_sdk::DataMessage::Data {
                         cursor: _,
                         end_cursor: _,
-                        finality: _,
+                        finality: data_finality,
                         batch,
                     } => {
+                        if data_finality == DataFinality::DataStatusPending
+                            && !reached_pending_block
+                        {
+                            println!("[🔍 Indexer] 🥳🎉 Reached pending block!");
+                            reached_pending_block = true;
+                        }
                         for block in batch {
                             for event in block.events {
                                 if let Some(event) = event.event {

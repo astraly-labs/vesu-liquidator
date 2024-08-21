@@ -138,7 +138,9 @@ impl Position {
             .expect("failed to retrieve ltv ratio");
 
         let is_liquidable = ltv_ratio > self.lltv;
-        self.debug_position_state(is_liquidable, ltv_ratio);
+        if is_liquidable {
+            self.debug_position_state(is_liquidable, ltv_ratio);
+        }
         is_liquidable
     }
 
