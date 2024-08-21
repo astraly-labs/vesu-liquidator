@@ -27,7 +27,7 @@ brew install protobuf
 
 Create an `.env` file following the example file and fill the keys.
 
-## Usage
+## Usage
 
 See:
 
