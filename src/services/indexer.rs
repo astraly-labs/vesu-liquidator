@@ -1,6 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use apibara_core::starknet::v1alpha2::Event;
+use apibara_core::{
+    node::v1alpha2::DataFinality,
+    starknet::v1alpha2::{Block, Filter, HeaderFilter},
+};
+use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
 use bigdecimal::BigDecimal;
 use futures_util::TryStreamExt;
 use starknet::core::types::Felt;
@@ -9,12 +15,6 @@ use starknet::{
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
 use tokio::sync::mpsc::Sender;
-
-use apibara_core::{
-    node::v1alpha2::DataFinality,
-    starknet::v1alpha2::{Block, Filter, HeaderFilter},
-};
-use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
 
 use crate::cli::NetworkName;
 use crate::config::{
@@ -76,6 +76,7 @@ impl IndexerService {
     /// Retrieve all the ModifyPosition events emitted from the Vesu Singleton Contract.
     pub async fn start(self) -> Result<()> {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
+
         config_client
             .send(self.stream_config.clone())
             .await
@@ -100,33 +101,9 @@ impl IndexerService {
                         batch,
                     } => {
                         for block in batch {
-                            for events_chunk in block.events {
-                                if events_chunk.receipt.is_none() {
-                                    continue;
-                                }
-                                for event in events_chunk.receipt.unwrap().events {
-                                    if event.from_address.is_none() {
-                                        continue;
-                                    }
-                                    let from = apibara_field_as_felt(&event.from_address.unwrap());
-                                    if from != self.config.singleton_address {
-                                        continue;
-                                    }
-                                    let first = apibara_field_as_felt(&event.keys[0]);
-                                    if first != MODIFY_POSITION_EVENT.to_owned() {
-                                        continue;
-                                    }
-                                    let third = apibara_field_as_felt(&event.keys[3]);
-                                    if third == Felt::ZERO {
-                                        continue;
-                                    }
-                                    // Create the new position & update the fields.
-                                    if let Some(mut new_position) =
-                                        Position::from_event(&self.config, &event.keys)
-                                    {
-                                        new_position = self.update_position(new_position).await?;
-                                        let _ = self.positions_sender.try_send(new_position);
-                                    }
+                            for event in block.events {
+                                if let Some(event) = event.event {
+                                    self.create_position_from_event(event).await?;
                                 }
                             }
                         }
@@ -152,6 +129,29 @@ impl IndexerService {
                 }
             }
         }
+    }
+
+    /// Index the provided event & creates a new position.
+    async fn create_position_from_event(&self, event: Event) -> Result<()> {
+        if event.from_address.is_none() {
+            return Ok(());
+        }
+        let debt_address = apibara_field_as_felt(&event.keys[3]);
+
+        // Corresponds to event associated with the extension contract - we ignore them.
+        if debt_address == Felt::ZERO {
+            return Ok(());
+        }
+
+        // Create the new position & update the fields.
+        if let Some(mut new_position) = Position::from_event(&self.config, &event.keys) {
+            new_position = self.update_position(new_position).await?;
+            if new_position.is_closed() {
+                return Ok(());
+            }
+            let _ = self.positions_sender.try_send(new_position);
+        }
+        Ok(())
     }
 
     /// Update a position given the latest data available.

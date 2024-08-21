@@ -30,8 +30,7 @@ impl PragmaOracle {
             api_url,
             api_key,
             aggregation_method: AggregationMethod::Median,
-            // TODO: Assert that we want OneMinute
-            interval: Interval::OneMinute,
+            interval: Interval::OneHour,
         }
     }
 }
@@ -48,6 +47,7 @@ impl PragmaOracle {
     // TODO: cache
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
         let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
+        println!("{}", url);
         let response = self
             .http_client
             .get(url)
