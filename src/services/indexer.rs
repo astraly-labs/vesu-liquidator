@@ -136,8 +136,8 @@ impl IndexerService {
         if event.from_address.is_none() {
             return Ok(());
         }
-        let debt_address = apibara_field_as_felt(&event.keys[3]);
 
+        let debt_address = apibara_field_as_felt(&event.keys[3]);
         // Corresponds to event associated with the extension contract - we ignore them.
         if debt_address == Felt::ZERO {
             return Ok(());
