@@ -13,7 +13,7 @@ pub struct Asset {
 
 impl Asset {
     pub fn from_address(config: &Config, address: Felt) -> Option<Self> {
-        let name = config.get_asset_name_for_address(&address);
+        let name = config.get_asset_ticker_for_address(&address);
         let decimals = config.get_decimal_for_address(&address);
 
         match (name, decimals) {

@@ -22,7 +22,7 @@ use crate::config::{
 };
 use crate::{
     types::position::Position,
-    utils::conversions::{apibara_field_element_as_felt, felt_as_apibara_field},
+    utils::conversions::{apibara_field_as_felt, felt_as_apibara_field},
 };
 
 const INDEXING_STREAM_CHUNK_SIZE: usize = 1024;
@@ -44,7 +44,7 @@ impl IndexerService {
         positions_sender: Sender<Position>,
         from_block: u64,
     ) -> IndexerService {
-        let uri: Uri = match config.network {
+        let uri = match config.network {
             NetworkName::Mainnet => Uri::from_static("https://mainnet.starknet.a5a.ch"),
             NetworkName::Sepolia => Uri::from_static("https://sepolia.starknet.a5a.ch"),
         };
@@ -52,7 +52,6 @@ impl IndexerService {
         let stream_config = Configuration::<Filter>::default()
             .with_starting_block(from_block)
             .with_finality(DataFinality::DataStatusPending)
-            // TODO: Filter does not seem to do anything. Done manually; investigate
             .with_filter(|mut filter| {
                 filter
                     .with_header(HeaderFilter::weak())
@@ -100,21 +99,24 @@ impl IndexerService {
                         finality: _,
                         batch,
                     } => {
-                        // TODO: Way better filtering :)
                         for block in batch {
                             for events_chunk in block.events {
+                                if events_chunk.receipt.is_none() {
+                                    continue;
+                                }
                                 for event in events_chunk.receipt.unwrap().events {
-                                    // TODO: Currently hand filtered :)
-                                    let from =
-                                        apibara_field_element_as_felt(&event.from_address.unwrap());
+                                    if event.from_address.is_none() {
+                                        continue;
+                                    }
+                                    let from = apibara_field_as_felt(&event.from_address.unwrap());
                                     if from != self.config.singleton_address {
                                         continue;
                                     }
-                                    let first = apibara_field_element_as_felt(&event.keys[0]);
+                                    let first = apibara_field_as_felt(&event.keys[0]);
                                     if first != MODIFY_POSITION_EVENT.to_owned() {
                                         continue;
                                     }
-                                    let third = apibara_field_element_as_felt(&event.keys[3]);
+                                    let third = apibara_field_as_felt(&event.keys[3]);
                                     if third == Felt::ZERO {
                                         continue;
                                     }

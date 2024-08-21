@@ -16,7 +16,7 @@ use crate::utils::apply_overhead;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
     config::LIQUIDATE_SELECTOR, oracle::PragmaOracle, types::asset::Asset,
-    utils::conversions::apibara_field_element_as_felt,
+    utils::conversions::apibara_field_as_felt,
 };
 
 /// Thread-safe wrapper around the positions.
@@ -51,10 +51,7 @@ pub struct Position {
 impl Position {
     /// Create a new position from the event_keys of a ModifyPosition event.
     pub fn from_event(config: &Config, event_keys: &[FieldElement]) -> Option<Position> {
-        let event_keys: Vec<Felt> = event_keys
-            .iter()
-            .map(apibara_field_element_as_felt)
-            .collect();
+        let event_keys: Vec<Felt> = event_keys.iter().map(apibara_field_as_felt).collect();
 
         let collateral = Asset::from_address(config, event_keys[2]);
         let debt = Asset::from_address(config, event_keys[3]);

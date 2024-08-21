@@ -73,7 +73,7 @@ impl Config {
         Ok(config)
     }
 
-    pub fn get_asset_name_for_address(&self, address: &Felt) -> Option<String> {
+    pub fn get_asset_ticker_for_address(&self, address: &Felt) -> Option<String> {
         self.asset_map
             .get(address)
             .map(|asset| asset.ticker.clone())
