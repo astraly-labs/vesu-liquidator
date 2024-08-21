@@ -27,10 +27,10 @@ brew install protobuf
 
 Create an `.env` file following the example file and fill the keys.
 
-
 ## Usage
 
 See:
+
 ```bash
 Usage: vesu-liquidator [OPTIONS] --account-address <LIQUIDATOR ACCOUNT ADDRESS> --network <NETWORK NAME> --rpc-url <RPC URL> --starting-block <BLOCK NUMBER> --pragma-api-base-url <PRAGMA API BASE URL>
 
@@ -64,7 +64,7 @@ Options:
 
       --apibara-api-key <APIBARA API KEY>
           Apibara API Key for indexing
-          
+
       --pragma-api-key <PRAGMA API KEY>
           Pragma API Key for indexing
 
