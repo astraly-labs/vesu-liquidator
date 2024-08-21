@@ -104,6 +104,7 @@ impl Position {
             .get(&self.debt.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for debt: {}", self.debt.name))?
             .clone();
+        drop(prices);
 
         let max_debt_in_dollar = &self.collateral.amount * &self.lltv * collateral_dollar_price;
 
