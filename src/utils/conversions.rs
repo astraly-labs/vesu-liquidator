@@ -11,7 +11,7 @@ pub fn hexa_price_to_big_decimal(hex_price: &str, decimals: i64) -> BigDecimal {
 }
 
 /// Converts a Felt element from starknet-rs to a FieldElement from Apibara-core.
-pub fn felt_as_apibara_field_element(value: &Felt) -> FieldElement {
+pub fn felt_as_apibara_field(value: &Felt) -> FieldElement {
     FieldElement::from_bytes(&value.to_bytes_be())
 }
 

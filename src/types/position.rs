@@ -12,11 +12,10 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::config::Config;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
-    config::{LIQUIDATE_SELECTOR, VESU_SINGLETON_CONTRACT},
-    oracle::PragmaOracle,
-    types::asset::Asset,
+    config::LIQUIDATE_SELECTOR, oracle::PragmaOracle, types::asset::Asset,
     utils::conversions::apibara_field_element_as_felt,
 };
 
@@ -57,19 +56,26 @@ fn apply_overhead(num: BigDecimal) -> BigDecimal {
 
 impl Position {
     /// Create a new position from the event_keys of a ModifyPosition event.
-    pub fn try_from_event(event_keys: &[FieldElement]) -> Result<Position> {
+    pub fn from_event(config: &Config, event_keys: &[FieldElement]) -> Option<Position> {
         let event_keys: Vec<Felt> = event_keys
             .iter()
             .map(apibara_field_element_as_felt)
             .collect();
+
+        let collateral = Asset::from_address(config, event_keys[2]);
+        let debt = Asset::from_address(config, event_keys[3]);
+        if collateral.is_none() || debt.is_none() {
+            return None;
+        }
+
         let position = Position {
             pool_id: event_keys[1],
-            collateral: Asset::try_from(event_keys[2])?,
-            debt: Asset::try_from(event_keys[3])?,
+            collateral: collateral.unwrap(),
+            debt: debt.unwrap(),
             user_address: event_keys[4],
             lltv: BigDecimal::default(),
         };
-        Ok(position)
+        Some(position)
     }
 
     /// Computes & returns the LTV Ratio for a position.
@@ -160,14 +166,18 @@ impl Position {
     /// Returns the TX necessary to liquidate this position (approve + liquidate).
     // TODO: Flash loan with a custom contract with a on_flash_loan function.
     // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
-    pub fn get_liquidation_txs(&self, amount_to_liquidate: BigDecimal) -> Vec<Call> {
+    pub fn get_liquidation_txs(
+        &self,
+        singleton_contract: Felt,
+        amount_to_liquidate: BigDecimal,
+    ) -> Vec<Call> {
         let debt_to_repay = big_decimal_to_u256(amount_to_liquidate);
 
         let approve_call = Call {
             to: self.debt.address,
             selector: get_selector_from_name("approve").unwrap(),
             calldata: vec![
-                VESU_SINGLETON_CONTRACT.to_owned(),
+                singleton_contract,
                 Felt::from(debt_to_repay.low()),
                 Felt::from(debt_to_repay.high()),
             ],
@@ -175,8 +185,8 @@ impl Position {
 
         // https://docs.vesu.xyz/dev-guides/singleton#liquidate_position
         let liquidate_call = Call {
-            to: VESU_SINGLETON_CONTRACT.to_owned(),
-            selector: LIQUIDATE_SELECTOR.to_owned(),
+            to: singleton_contract,
+            selector: *LIQUIDATE_SELECTOR,
             calldata: vec![
                 self.pool_id,            // pool_id
                 self.collateral.address, // collateral_asset
