@@ -48,20 +48,13 @@ impl OracleService {
 
     /// Update all the monitored assets with their latest USD price.
     async fn update_prices(&self) -> Result<()> {
-        let assets: Vec<String> = {
-            let prices = self.latest_prices.0.lock().await;
-            prices.keys().cloned().collect()
-        };
-
-        let mut updated_prices = HashMap::new();
+        let mut prices = self.latest_prices.0.lock().await;
+        let assets: Vec<String> = prices.keys().cloned().collect();
         for asset in assets {
             if let Ok(price) = self.oracle.get_dollar_price(asset.clone()).await {
-                updated_prices.insert(asset, price);
+                prices.insert(asset, price);
             }
         }
-
-        let mut prices = self.latest_prices.0.lock().await;
-        prices.extend(updated_prices);
         Ok(())
     }
 }

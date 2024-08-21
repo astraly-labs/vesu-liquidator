@@ -50,7 +50,7 @@ pub async fn start_all_services(
         latest_oracle_prices.clone(),
     );
 
-    println!("\n⏳ Waiting a few moment for the indexer to fetch positions...");
+    println!("\n⏳ Waiting a few moment for the indexer to fetch positions...\n");
     tokio::time::sleep(Duration::from_secs(15)).await;
 
     println!("\n🧩 Starting the monitoring service...");
