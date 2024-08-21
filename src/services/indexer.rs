@@ -156,7 +156,10 @@ impl IndexerService {
             if self.seen_positions.insert(position_key) {
                 println!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
             }
-            let _ = self.positions_sender.try_send(new_position);
+            match self.positions_sender.try_send(new_position) {
+                Ok(_) => {}
+                Err(e) => panic!("Could not send position: {}", e),
+            }
         }
         Ok(())
     }

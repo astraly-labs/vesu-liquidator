@@ -3,6 +3,7 @@ use std::{collections::HashMap, time::Duration};
 
 use anyhow::Result;
 use bigdecimal::BigDecimal;
+use futures_util::future::join_all;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use tokio::sync::Mutex;
@@ -11,7 +12,7 @@ use url::Url;
 use crate::{config::Config, utils::conversions::hexa_price_to_big_decimal};
 
 pub const USD_ASSET: &str = "usd";
-pub const PRICES_UPDATE_INTERVAL: u64 = 55;
+pub const PRICES_UPDATE_INTERVAL: u64 = 60; // update every minutes
 
 pub struct OracleService {
     oracle: PragmaOracle,
@@ -32,20 +33,34 @@ impl OracleService {
         loop {
             println!("[🔮 Oracle] Fetching latest prices...");
             self.update_prices().await?;
-            println!("[🔮 Oracle] Fetched!");
+            println!("[🔮 Oracle] ✅ Fetched all new prices");
             tokio::time::sleep(sleep_duration).await;
         }
     }
 
-    /// Update all the monitored assets with their latest USD price.
+    /// Update all the monitored assets with their latest USD price asynchronously.
     async fn update_prices(&self) -> Result<()> {
-        let mut prices = self.latest_prices.0.lock().await;
+        let prices = self.latest_prices.0.lock().await;
         let assets: Vec<String> = prices.keys().cloned().collect();
-        for asset in assets {
-            if let Ok(price) = self.oracle.get_dollar_price(asset.clone()).await {
+        drop(prices); // Release the lock before starting async operations
+
+        let fetch_tasks = assets.into_iter().map(|asset| {
+            let oracle = self.oracle.clone();
+            async move {
+                let price = oracle.get_dollar_price(asset.clone()).await;
+                (asset, price)
+            }
+        });
+
+        let results = join_all(fetch_tasks).await;
+
+        let mut prices = self.latest_prices.0.lock().await;
+        for (asset, price_result) in results {
+            if let Ok(price) = price_result {
                 prices.insert(asset, price);
             }
         }
+
         Ok(())
     }
 }
@@ -101,6 +116,7 @@ impl PragmaOracle {
     // TODO: Fix oracle timeout response with a retry
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
         let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
+        println!("{}", url);
         let response = self
             .http_client
             .get(url)

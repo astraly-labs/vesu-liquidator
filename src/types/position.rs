@@ -31,6 +31,14 @@ impl PositionsMap {
     pub async fn insert(&self, position: Position) -> Option<Position> {
         self.0.write().await.insert(position.key(), position)
     }
+
+    pub async fn len(&self) -> usize {
+        self.0.read().await.len()
+    }
+
+    pub async fn is_empty(&self) -> bool {
+        self.0.read().await.is_empty()
+    }
 }
 
 impl Default for PositionsMap {

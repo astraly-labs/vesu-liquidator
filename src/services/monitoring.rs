@@ -65,10 +65,14 @@ impl MonitoringService {
                 // Insert the new positions indexed by the IndexerService
                 maybe_position = self.positions_receiver.recv() => {
                     match maybe_position {
-                        Some(position) => {
-                            if !position.is_closed() {
-                                self.positions.insert(position).await;
+                        Some(new_position) => {
+                            let mut positions = self.positions.0.write().await;
+                            positions.insert(new_position.key(), new_position);
+                            // Drain and process any additional positions in the queue
+                            while let Ok(new_position) = self.positions_receiver.try_recv() {
+                                positions.insert(new_position.key(), new_position);
                             }
+                            println!("[🔭 Monitoring] Added position, total {}", self.positions.len().await)
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));
@@ -82,7 +86,6 @@ impl MonitoringService {
     /// Update all monitored positions and check if it's worth to liquidate any.
     /// TODO: Check issue for multicall update:
     /// https://github.com/astraly-labs/vesu-liquidator/issues/12
-    /// TODO: Check all positions in parallel
     async fn monitor_positions_liquidability(&self) -> Result<()> {
         let monitored_positions = self.positions.0.read().await;
         if monitored_positions.is_empty() {
