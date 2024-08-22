@@ -12,25 +12,24 @@ use tokio::time::interval;
 
 use crate::{
     config::Config,
+    services::oracle::LatestOraclePrices,
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
     },
 };
 
-use super::oracle::LatestOraclePrices;
-
 const CHECK_POSITIONS_INTERVAL: u64 = 10;
 const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 const INTERVAL_CHECK_TX_FINALITY: u64 = 3;
 
 pub struct MonitoringService {
-    pub config: Config,
-    pub rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-    pub account: StarknetAccount,
-    pub positions_receiver: Receiver<Position>,
-    pub positions: PositionsMap,
-    pub latest_oracle_prices: LatestOraclePrices,
+    config: Config,
+    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+    account: StarknetAccount,
+    positions_receiver: Receiver<Position>,
+    positions: PositionsMap,
+    latest_oracle_prices: LatestOraclePrices,
 }
 
 impl MonitoringService {
@@ -85,13 +84,13 @@ impl MonitoringService {
         if monitored_positions.is_empty() {
             return Ok(());
         }
-        println!("\n[🔭 Monitoring] Checking if any position is liquidable...");
+        tracing::info!("[🔭 Monitoring] Checking if any position is liquidable...");
         for (_, position) in monitored_positions.iter() {
             if position.is_liquidable(&self.latest_oracle_prices).await {
                 let _profit_made = self.try_to_liquidate_position(position).await?;
             }
         }
-        println!("[🔭 Monitoring] 🤨 They're good.. for now...");
+        tracing::info!("[🔭 Monitoring] 🤨 They're good.. for now...");
         Ok(())
     }
 
@@ -104,7 +103,7 @@ impl MonitoringService {
             let tx_hash_felt = self.account.execute_txs(&txs).await?;
             let tx_hash = tx_hash_felt.to_string();
             self.wait_for_tx_to_be_accepted(&tx_hash).await?;
-            println!(
+            tracing::info!(
                 "[🔭 Monitoring] ✅ Liquidated position #{}! (TX #{})",
                 position.key(),
                 tx_hash

@@ -17,6 +17,7 @@ use cli::{NetworkName, RunCmd};
 use config::Config;
 use services::start_all_services;
 use types::account::StarknetAccount;
+use utils::setup_tracing;
 
 fn print_app_title(account_address: Felt, network: NetworkName, starting_block: u64) {
     println!("\n
@@ -36,6 +37,8 @@ fn print_app_title(account_address: Felt, network: NetworkName, starting_block: 
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv()?;
+    setup_tracing();
+
     let mut run_cmd: RunCmd = RunCmd::parse();
     run_cmd.validate()?;
 

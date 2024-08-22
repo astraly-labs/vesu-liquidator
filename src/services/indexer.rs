@@ -81,6 +81,8 @@ impl IndexerService {
     pub async fn start(mut self) -> Result<()> {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
 
+        let mut reached_pending_block: bool = false;
+
         config_client
             .send(self.stream_config.clone())
             .await
@@ -101,9 +103,15 @@ impl IndexerService {
                     apibara_sdk::DataMessage::Data {
                         cursor: _,
                         end_cursor: _,
-                        finality: _,
+                        finality: data_finality,
                         batch,
                     } => {
+                        if data_finality == DataFinality::DataStatusPending
+                            && !reached_pending_block
+                        {
+                            tracing::info!("[🔍 Indexer] 🥳🎉 Reached pending block!");
+                            reached_pending_block = true;
+                        }
                         for block in batch {
                             for event in block.events {
                                 if let Some(event) = event.event {
@@ -155,7 +163,7 @@ impl IndexerService {
             }
             let position_key = new_position.key();
             if self.seen_positions.insert(position_key) {
-                println!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
+                tracing::info!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
             }
             match self.positions_sender.try_send(new_position) {
                 Ok(_) => {}
