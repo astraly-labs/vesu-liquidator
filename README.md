@@ -125,3 +125,30 @@ Should run the bot:
 
 # rest of the execution...
 ```
+
+## Project assistance
+
+If you want to say **thank you** or/and support:
+
+- Add a [GitHub Star](https://github.com/astraly-labs/Vesu-liquidator) to the project.
+- Tweet about it.
+- Write interesting articles about the project on [Dev.to](https://dev.to/), [Medium](https://medium.com/) or your personal blog.
+
+## Contributing
+
+First off, thanks for taking the time to contribute! Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
+
+Please read [our contribution guidelines](docs/CONTRIBUTING.md), and thank you for being involved!
+
+## Security
+
+We follows good practices of security, but 100% security cannot be assured.
+The bot is provided **"as is"** without any **warranty**. Use at your own risk.
+
+_For more information and to report security issues, please refer to our [security documentation](docs/SECURITY.md)._
+
+## License
+
+This project is licensed under the **MIT license**.
+
+See [LICENSE](LICENSE) for more information.
