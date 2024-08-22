@@ -13,9 +13,9 @@
 
 ## Getting Started
 
-## Prerequisites
+### Prerequisites
 
-### Protobuf
+#### Protobuf
 
 In order to run the liquidator, you need the protoc Protocol Buffers compiler, along with Protocol Buffers resource files.
 
@@ -34,7 +34,7 @@ Assuming Homebrew is already installed.
 brew install protobuf
 ```
 
-### Environment Variables
+#### Environment Variables
 
 Create an `.env` file following the example file and fill the keys.
 
