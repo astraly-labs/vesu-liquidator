@@ -66,7 +66,7 @@ impl OracleService {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone,Debug)]
 pub struct LatestOraclePrices(pub Arc<Mutex<HashMap<String, BigDecimal>>>);
 
 impl LatestOraclePrices {

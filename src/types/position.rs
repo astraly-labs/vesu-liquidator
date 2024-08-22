@@ -235,18 +235,16 @@ impl fmt::Display for Position {
 
 #[cfg(test)]
 mod tests{
+    use std::{collections::HashMap, path::PathBuf, sync::Arc};
+
     use bigdecimal::{num_bigint::BigInt, BigDecimal};
-    use mockall::{mock, predicate::eq};
+    use tokio::sync::Mutex;
+    use maplit::hashmap;
     use starknet::core::types::Felt;
     use anyhow::Result;
+    use url::Url;
 
-    use crate::types::{asset::Asset, position::Position};
-
-    mock! {
-        pub PragmaOracle {
-            pub async fn get_dollar_price(&self, asset_name: &str) -> Result<BigDecimal> ;
-        }
-    }
+    use crate::{cli::NetworkName, config::Config, services::oracle::LatestOraclePrices, types::{asset::Asset, position::Position}};
 
     #[tokio::test]
     async fn test_position_ltv() {
@@ -268,17 +266,13 @@ mod tests{
             lltv: BigDecimal::new(BigInt::from(5), 1),
         };
 
-        let mut mock_oracle = MockPragmaOracle::new();
-        mock_oracle
-            .expect_get_dollar_price()
-            .with(eq("eth"))
-            .returning(|_| { Ok(BigDecimal::from(2000)) });
-        mock_oracle
-            .expect_get_dollar_price()
-            .with(eq("dai"))
-            .returning(|_| { Ok(BigDecimal::from(1)) });
+        let price_map: HashMap<String, BigDecimal> = hashmap! {
+            String::from("eth") => BigDecimal::from(2000),
+            String::from("usdc") => BigDecimal::from(1),
+        } ;
+        let mocked_oracle_price = LatestOraclePrices { 0 : Arc::new(Mutex::new(price_map))};
 
-        let ltv = position.ltv(&mock_oracle).await.unwrap();
+        let ltv = position.ltv(&mocked_oracle_price).await.unwrap();
         assert_eq!(ltv, BigDecimal::new(BigInt::from(25),2));
     }
 
@@ -294,7 +288,7 @@ mod tests{
             },
             debt: Asset {
                 name: "USDC".to_string(),
-                amount: BigDecimal::from(600),
+                amount: BigDecimal::from(1100),
                 address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
                 decimals: 6,
             },
@@ -302,17 +296,13 @@ mod tests{
             lltv: BigDecimal::new(BigInt::from(5), 1),
         };
 
-        let mut mock_oracle = MockPragmaOracle::new();
-        mock_oracle
-            .expect_get_dollar_price()
-            .with(eq("eth"))
-            .returning(|_| { Ok(BigDecimal::from(2000)) });
-        mock_oracle
-            .expect_get_dollar_price()
-            .with(eq("usdc"))
-            .returning(|_| { Ok(BigDecimal::from(1)) });
+        let price_map: HashMap<String, BigDecimal> = hashmap! {
+            String::from("eth") => BigDecimal::from(2000),
+            String::from("usdc") => BigDecimal::from(1),
+        } ;
+        let mocked_oracle_price = LatestOraclePrices { 0 : Arc::new(Mutex::new(price_map))};
 
-        assert!(position.is_liquidable(&mock_oracle).await);
+        assert!(position.is_liquidable(&mocked_oracle_price).await);
     }
 
     #[tokio::test]
@@ -350,7 +340,7 @@ mod tests{
             },
             debt: Asset {
                 name: "USDC".to_string(),
-                amount: BigDecimal::from(750),
+                amount: BigDecimal::from(1250),
                 address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
                 decimals: 6,
             },
@@ -358,17 +348,13 @@ mod tests{
             lltv: BigDecimal::new(BigInt::from(5), 1),
         };
 
-        let mut mock_oracle = MockPragmaOracle::new();
-        mock_oracle
-            .expect_get_dollar_price()
-            .with(eq("eth"))
-            .returning(|_| { Ok(BigDecimal::from(2000)) });
-        mock_oracle
-            .expect_get_dollar_price()
-            .with(eq("usdc"))
-            .returning(|_| { Ok(BigDecimal::from(1)) });
+        let price_map: HashMap<String, BigDecimal> = hashmap! {
+            String::from("eth") => BigDecimal::from(2000),
+            String::from("usdc") => BigDecimal::from(1),
+        } ;
+        let mocked_oracle_price = LatestOraclePrices { 0 : Arc::new(Mutex::new(price_map))};
 
-        let liquidable_amount = position.liquidable_amount(&mock_oracle).await.unwrap();
+        let liquidable_amount = position.liquidable_amount(&mocked_oracle_price).await.unwrap();
         assert_eq!(liquidable_amount, BigDecimal::from(250) * BigDecimal::new(BigInt::from(102), 2));
     }
 }
