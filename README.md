@@ -13,6 +13,60 @@
 
 ## Getting Started
 
+### Docker through published package
+
+You can run the Vesu Liquidator using our pre-built Docker image. Here's how to use it:
+
+1. Pull the latest image:
+
+```sh
+docker pull ghcr.io/astraly-labs/vesu-liquidator:latest
+```
+
+1. Run the container:
+
+```sh
+docker run --rm -it \
+  -v /path/to/your/.env:/app/.env \
+  ghcr.io/astraly-labs/vesu-liquidator:latest \
+  --account-address <LIQUIDATOR_ACCOUNT_ADDRESS> \
+  --network <NETWORK_NAME> \
+  --rpc-url <RPC_URL> \
+  --starting-block <BLOCK_NUMBER> \
+  --pragma-api-base-url <PRAGMA_API_BASE_URL>
+```
+
+For more options, run:
+
+```bash
+docker run --rm ghcr.io/astraly-labs/vesu-liquidator:latest --help
+```
+
+### Docker locally
+
+If you want to build the Docker image locally:
+
+1. Build the Docker image:
+
+```sh
+docker build -t vesu-liquidator .
+```
+
+2. Run the locally built image:
+
+```sh
+docker run --rm vesu-liquidator --help
+# OR
+docker run --rm -it \
+  -v /path/to/your/.env:/app/.env \
+  vesu-liquidator \
+  --account-address <LIQUIDATOR_ACCOUNT_ADDRESS> \
+  --network <NETWORK_NAME> \
+  --rpc-url <RPC_URL> \
+  --starting-block <BLOCK_NUMBER> \
+  --pragma-api-base-url <PRAGMA_API_BASE_URL>
+```
+
 ### Prerequisites
 
 #### Protobuf

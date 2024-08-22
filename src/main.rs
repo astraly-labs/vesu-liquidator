@@ -36,7 +36,7 @@ fn print_app_title(account_address: Felt, network: NetworkName, starting_block: 
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenvy::dotenv()?;
+    let _ = dotenvy::dotenv();
     setup_tracing();
 
     let mut run_cmd: RunCmd = RunCmd::parse();
