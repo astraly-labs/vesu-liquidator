@@ -25,3 +25,19 @@ pub fn big_decimal_to_u256(value: BigDecimal) -> U256 {
     let (amount, _): (BigInt, _) = value.as_bigint_and_exponent();
     U256::from(Felt::from(amount.clone()))
 }
+
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use bigdecimal::{num_bigint::BigInt, BigDecimal};
+
+    use crate::utils::conversions::hex_str_to_big_decimal;
+
+    #[test]
+    fn test_hex_str_to_decimal() {
+        assert_eq!(hex_str_to_big_decimal("0x100000000000", 3), BigDecimal::new(BigInt::from_str("17592186044416").unwrap(), 3));
+        assert_eq!(hex_str_to_big_decimal("100000000000", 3), BigDecimal::new(BigInt::from_str("17592186044416").unwrap(), 3));
+    }
+}

@@ -56,3 +56,36 @@ async fn main() -> Result<()> {
 
     start_all_services(config, rpc_client, account, run_cmd).await
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{env, path::PathBuf, sync::Arc};
+
+    use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
+    use tokio::sync::mpsc;
+    use url::Url;
+
+    use crate::{cli::NetworkName, config::Config, services::indexer::IndexerService, types::position::Position};
+
+    #[test]
+    fn e2e_testing() {
+        // create indexer
+        let config = Config::new(NetworkName::Mainnet, &PathBuf::from("./config.yaml")).unwrap();
+        let rpc_url = Url::parse("https://starknet-mainnet.public.blastapi.io").unwrap();
+        let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));
+        let (positions_sender, position_receiver) = mpsc::channel::<Position>(1024);
+
+        let indexer = IndexerService::new(
+            config.clone(),
+            rpc_client.clone(),
+            env::var("APIBARA_KEY").unwrap(),
+            positions_sender,
+            600000,
+        );
+        // assert that a position is retrieved
+        // create monitoring
+        // 
+
+        todo!()
+    }
+}
