@@ -78,7 +78,6 @@ impl Position {
     }
 
     /// Computes & returns the LTV Ratio for a position.
-    /// Computes & returns the LTV Ratio for a position.
     pub async fn ltv(&self, oracle_prices: &LatestOraclePrices) -> Result<BigDecimal> {
         let collateral_name = self.collateral.name.to_lowercase();
         let debt_name = self.debt.name.to_lowercase();

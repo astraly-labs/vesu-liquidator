@@ -103,13 +103,11 @@ impl IndexerService {
                     apibara_sdk::DataMessage::Data {
                         cursor: _,
                         end_cursor: _,
-                        finality: data_finality,
+                        finality,
                         batch,
                     } => {
-                        if data_finality == DataFinality::DataStatusPending
-                            && !reached_pending_block
-                        {
-                            tracing::info!("[🔍 Indexer] 🥳🎉 Reached pending block!");
+                        if finality == DataFinality::DataStatusPending && !reached_pending_block {
+                            self.log_pending_block_reached(batch.last());
                             reached_pending_block = true;
                         }
                         for block in batch {
@@ -215,5 +213,23 @@ impl IndexerService {
         // Decimals is always 18 for the ltv_config response
         position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), ETHEREUM_DECIMALS);
         Ok(position)
+    }
+
+    /// Logs that we successfully reached current pending block
+    fn log_pending_block_reached(&self, last_block_in_batch: Option<&Block>) {
+        let maybe_pending_block_number = if let Some(last_block) = last_block_in_batch {
+            last_block.header.as_ref().map(|header| header.block_number)
+        } else {
+            None
+        };
+
+        if let Some(pending_block_number) = maybe_pending_block_number {
+            tracing::info!(
+                "[🔍 Indexer] 🥳🎉 Reached pending block #{}!",
+                pending_block_number
+            );
+        } else {
+            tracing::info!("[🔍 Indexer] 🥳🎉 Reached pending block!",);
+        }
     }
 }
