@@ -25,6 +25,7 @@ starknet = "0.11.0"
 strum = { version = "0.26", features = ["derive"] }
 tokio = { version = "1.39.2", features = ["full"] }
 tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
 url = "2.5.2"
 
 apibara-core = { git = "https://github.com/apibara/dna", branch = "main" }

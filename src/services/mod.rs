@@ -32,7 +32,7 @@ pub async fn start_all_services(
 ) -> Result<()> {
     let (positions_sender, position_receiver) = mpsc::channel::<Position>(1024);
 
-    println!("🧩 Starting the indexer service...");
+    tracing::info!("🧩 Starting the indexer service...");
     let indexer_handle = start_indexer_service(
         config.clone(),
         rpc_client.clone(),
@@ -41,17 +41,17 @@ pub async fn start_all_services(
         run_cmd.apibara_api_key.unwrap(),
     );
 
-    println!("\n⏳ Waiting a few moment for the indexer to fetch positions...\n");
+    tracing::info!("⏳ Waiting a few moment for the indexer to fetch positions...\n");
 
     let latest_oracle_prices = LatestOraclePrices::from_config(&config);
-    println!("\n🧩 Starting the oracle service...");
+    tracing::info!("🧩 Starting the oracle service...");
     let oracle_handle = start_oracle_service(
         run_cmd.pragma_api_base_url,
         run_cmd.pragma_api_key.unwrap(),
         latest_oracle_prices.clone(),
     );
 
-    println!("\n🧩 Starting the monitoring service...\n");
+    tracing::info!("🧩 Starting the monitoring service...\n");
     let monitoring_handle = start_monitoring_service(
         config.clone(),
         rpc_client.clone(),

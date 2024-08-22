@@ -84,13 +84,13 @@ impl MonitoringService {
         if monitored_positions.is_empty() {
             return Ok(());
         }
-        println!("\n[🔭 Monitoring] Checking if any position is liquidable...");
+        tracing::info!("[🔭 Monitoring] Checking if any position is liquidable...");
         for (_, position) in monitored_positions.iter() {
             if position.is_liquidable(&self.latest_oracle_prices).await {
                 let _profit_made = self.try_to_liquidate_position(position).await?;
             }
         }
-        println!("[🔭 Monitoring] 🤨 They're good.. for now...");
+        tracing::info!("[🔭 Monitoring] 🤨 They're good.. for now...");
         Ok(())
     }
 
@@ -103,7 +103,7 @@ impl MonitoringService {
             let tx_hash_felt = self.account.execute_txs(&txs).await?;
             let tx_hash = tx_hash_felt.to_string();
             self.wait_for_tx_to_be_accepted(&tx_hash).await?;
-            println!(
+            tracing::info!(
                 "[🔭 Monitoring] ✅ Liquidated position #{}! (TX #{})",
                 position.key(),
                 tx_hash

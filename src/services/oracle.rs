@@ -34,9 +34,9 @@ impl OracleService {
     pub async fn start(self) -> Result<()> {
         let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
-            println!("[🔮 Oracle] Fetching latest prices...");
+            tracing::info!("[🔮 Oracle] Fetching latest prices...");
             self.update_prices().await?;
-            println!("[🔮 Oracle] ✅ Fetched all new prices");
+            tracing::info!("[🔮 Oracle] ✅ Fetched all new prices");
             tokio::time::sleep(sleep_duration).await;
         }
     }
@@ -119,7 +119,7 @@ impl PragmaOracle {
         let response_status = response.status();
         let response_text = response.text().await?;
         if response_status != StatusCode::OK {
-            println!("⛔ Oracle Request failed with: {:?}", response_text);
+            tracing::error!("⛔ Oracle Request failed with: {:?}", response_text);
             return Err(anyhow!(
                 "Oracle request failed with status {response_status}"
             ));

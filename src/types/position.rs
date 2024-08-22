@@ -146,7 +146,7 @@ impl Position {
 
     /// Prints the status of the position and if it's liquidable or not.
     fn debug_position_state(&self, is_liquidable: bool, ltv_ratio: BigDecimal) {
-        println!(
+        tracing::info!(
             "{} is at ratio {:.2}%/{:.2}% => {}",
             self,
             ltv_ratio * BigDecimal::from(100),

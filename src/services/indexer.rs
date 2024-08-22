@@ -109,7 +109,7 @@ impl IndexerService {
                         if data_finality == DataFinality::DataStatusPending
                             && !reached_pending_block
                         {
-                            println!("[🔍 Indexer] 🥳🎉 Reached pending block!");
+                            tracing::info!("[🔍 Indexer] 🥳🎉 Reached pending block!");
                             reached_pending_block = true;
                         }
                         for block in batch {
@@ -163,7 +163,7 @@ impl IndexerService {
             }
             let position_key = new_position.key();
             if self.seen_positions.insert(position_key) {
-                println!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
+                tracing::info!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
             }
             match self.positions_sender.try_send(new_position) {
                 Ok(_) => {}
