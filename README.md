@@ -13,6 +13,60 @@
 
 ## Getting Started
 
+### Docker through published package
+
+You can run the Vesu Liquidator using our pre-built Docker image. Here's how to use it:
+
+1. Pull the latest image:
+
+```sh
+docker pull ghcr.io/astraly-labs/vesu-liquidator:latest
+```
+
+1. Run the container:
+
+```sh
+docker run --rm -it \
+  -v /path/to/your/.env:/app/.env \
+  ghcr.io/astraly-labs/vesu-liquidator:latest \
+  --account-address <LIQUIDATOR_ACCOUNT_ADDRESS> \
+  --network <NETWORK_NAME> \
+  --rpc-url <RPC_URL> \
+  --starting-block <BLOCK_NUMBER> \
+  --pragma-api-base-url <PRAGMA_API_BASE_URL>
+```
+
+For more options, run:
+
+```bash
+docker run --rm ghcr.io/astraly-labs/vesu-liquidator:latest --help
+```
+
+### Docker locally
+
+If you want to build the Docker image locally:
+
+1. Build the Docker image:
+
+```sh
+docker build -t vesu-liquidator .
+```
+
+2. Run the locally built image:
+
+```sh
+docker run --rm vesu-liquidator --help
+# OR
+docker run --rm -it \
+  -v /path/to/your/.env:/app/.env \
+  vesu-liquidator \
+  --account-address <LIQUIDATOR_ACCOUNT_ADDRESS> \
+  --network <NETWORK_NAME> \
+  --rpc-url <RPC_URL> \
+  --starting-block <BLOCK_NUMBER> \
+  --pragma-api-base-url <PRAGMA_API_BASE_URL>
+```
+
 ### Prerequisites
 
 #### Protobuf
@@ -125,3 +179,30 @@ Should run the bot:
 
 # rest of the execution...
 ```
+
+## Project assistance
+
+If you want to say **thank you** or/and support:
+
+- Add a [GitHub Star](https://github.com/astraly-labs/Vesu-liquidator) to the project.
+- Tweet about it.
+- Write interesting articles about the project on [Dev.to](https://dev.to/), [Medium](https://medium.com/) or your personal blog.
+
+## Contributing
+
+First off, thanks for taking the time to contribute! Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
+
+Please read [our contribution guidelines](docs/CONTRIBUTING.md), and thank you for being involved!
+
+## Security
+
+We follows good practices of security, but 100% security cannot be assured.
+The bot is provided **"as is"** without any **warranty**. Use at your own risk.
+
+_For more information and to report security issues, please refer to our [security documentation](docs/SECURITY.md)._
+
+## License
+
+This project is licensed under the **MIT license**.
+
+See [LICENSE](LICENSE) for more information.
