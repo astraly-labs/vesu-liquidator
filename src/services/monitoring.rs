@@ -12,25 +12,24 @@ use tokio::time::interval;
 
 use crate::{
     config::Config,
+    services::oracle::LatestOraclePrices,
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
     },
 };
 
-use super::oracle::LatestOraclePrices;
-
 const CHECK_POSITIONS_INTERVAL: u64 = 10;
 const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 const INTERVAL_CHECK_TX_FINALITY: u64 = 3;
 
 pub struct MonitoringService {
-    pub config: Config,
-    pub rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-    pub account: StarknetAccount,
-    pub positions_receiver: Receiver<Position>,
-    pub positions: PositionsMap,
-    pub latest_oracle_prices: LatestOraclePrices,
+    config: Config,
+    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+    account: StarknetAccount,
+    positions_receiver: Receiver<Position>,
+    positions: PositionsMap,
+    latest_oracle_prices: LatestOraclePrices,
 }
 
 impl MonitoringService {

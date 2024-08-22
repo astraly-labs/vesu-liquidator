@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bigdecimal::BigDecimal;
 use futures_util::future::join_all;
 use reqwest::StatusCode;
@@ -10,10 +10,10 @@ use strum::Display;
 use tokio::sync::Mutex;
 use url::Url;
 
-use crate::{config::Config, utils::conversions::hexa_price_to_big_decimal};
+use crate::{config::Config, utils::conversions::hex_str_to_big_decimal};
 
 const USD_ASSET: &str = "usd";
-pub const PRICES_UPDATE_INTERVAL: u64 = 60; // update every minutes
+const PRICES_UPDATE_INTERVAL: u64 = 60; // update every minutes
 
 pub struct OracleService {
     oracle: PragmaOracle,
@@ -29,6 +29,8 @@ impl OracleService {
         }
     }
 
+    /// Starts the oracle service that will fetch the latest oracle prices every
+    /// PRICES_UPDATE_INTERVAL seconds.
     pub async fn start(self) -> Result<()> {
         let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
@@ -86,10 +88,10 @@ pub struct OracleApiResponse {
 #[derive(Debug, Clone)]
 pub struct PragmaOracle {
     http_client: reqwest::Client,
-    pub api_url: Url,
-    pub api_key: String,
-    pub aggregation_method: AggregationMethod,
-    pub interval: Interval,
+    api_url: Url,
+    api_key: String,
+    aggregation_method: AggregationMethod,
+    interval: Interval,
 }
 
 impl PragmaOracle {
@@ -105,16 +107,9 @@ impl PragmaOracle {
 }
 
 impl PragmaOracle {
-    pub fn fetch_price_url(&self, base: String, quote: String) -> String {
-        format!(
-            "{}node/v1/onchain/{}/{}?network=sepolia&components=false&variations=false&interval={}&aggregation={}",
-            self.api_url, base, quote, self.interval, self.aggregation_method
-        )
-    }
-
     // TODO: Fix oracle timeout response with a retry
     pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
-        let url = self.fetch_price_url(asset_name.clone(), USD_ASSET.to_owned());
+        let url = self.fetch_price_url(asset_name, USD_ASSET.to_owned());
         let response = self
             .http_client
             .get(url)
@@ -125,12 +120,20 @@ impl PragmaOracle {
         let response_text = response.text().await?;
         if response_status != StatusCode::OK {
             println!("⛔ Oracle Request failed with: {:?}", response_text);
+            return Err(anyhow!(
+                "Oracle request failed with status {response_status}"
+            ));
         }
         let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
-        Ok(hexa_price_to_big_decimal(
-            oracle_response.price.as_str(),
-            oracle_response.decimals,
-        ))
+        let asset_price = hex_str_to_big_decimal(&oracle_response.price, oracle_response.decimals);
+        Ok(asset_price)
+    }
+
+    fn fetch_price_url(&self, base: String, quote: String) -> String {
+        format!(
+            "{}node/v1/onchain/{}/{}?network=sepolia&components=false&variations=false&interval={}&aggregation={}",
+            self.api_url, base, quote, self.interval, self.aggregation_method
+        )
     }
 }
 
