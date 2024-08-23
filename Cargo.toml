@@ -28,5 +28,5 @@ tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 url = "2.5.2"
 
-apibara-core = { git = "https://github.com/apibara/dna", branch = "main" }
-apibara-sdk = { git = "https://github.com/apibara/dna", branch = "main" }
+apibara-core = { git = "https://github.com/apibara/dna", rev = "9caa385" }
+apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
