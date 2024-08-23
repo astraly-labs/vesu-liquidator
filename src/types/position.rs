@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
+use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
 use starknet::accounts::Call;
@@ -113,15 +114,26 @@ impl Position {
             .clone();
         drop(prices);
 
-        let max_debt_in_dollar = &self.collateral.amount * &self.lltv * collateral_dollar_price;
+        // let max_debt_in_dollar = &self.collateral.amount * &self.lltv * collateral_dollar_price;
 
-        let current_debt = &self.debt.amount * debt_asset_dollar_price.clone();
-        let liquidable_debt_in_dollar = current_debt - max_debt_in_dollar;
+        // let current_debt = &self.debt.amount * debt_asset_dollar_price.clone();
+        // let liquidable_debt_in_dollar = current_debt - max_debt_in_dollar;
 
-        let liquidable_amount =
-            (&liquidable_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals);
+        // let liquidable_amount =
+        //     (&liquidable_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals);
 
-        Ok(apply_overhead(liquidable_amount))
+        // Ok(apply_overhead(liquidable_amount))
+
+        let collateral_factor = self.lltv;
+        let total_collateral_value_in_usd = self.collateral.amount * collateral_dollar_price;
+        let current_debt_in_usd = self.debt.amount * debt_asset_dollar_price;
+        let liquidation_bonus = BigDecimal::from(1);
+        let maximum_health_factor = BigDecimal::new(BigInt::from(999), 3);
+
+        let liquidation_amount_in_usd = ((collateral_factor * total_collateral_value_in_usd) - (maximum_health_factor * current_debt_in_usd))
+                                            / (collateral_factor * (BigDecimal::from(1) + liquidation_bonus) - maximum_health_factor);
+
+        liquidation_amount_in_usd / debt_asset_price_usd
     }
 
     /// Check if a position is closed.
