@@ -41,9 +41,6 @@ pub async fn start_all_services(
         run_cmd.apibara_api_key.unwrap(),
     );
 
-    tracing::info!("⏳ Waiting a few moment for the indexer to fetch positions...\n");
-    tokio::time::sleep(Duration::from_secs(10)).await;
-
     let latest_oracle_prices = LatestOraclePrices::from_config(&config);
     tracing::info!("🧩 Starting the oracle service...");
     let oracle_handle = start_oracle_service(
@@ -51,6 +48,9 @@ pub async fn start_all_services(
         run_cmd.pragma_api_key.unwrap(),
         latest_oracle_prices.clone(),
     );
+
+    tracing::info!("⏳ Waiting a few moment for the indexer to fetch positions...\n");
+    tokio::time::sleep(Duration::from_secs(10)).await;
 
     tracing::info!("🧩 Starting the monitoring service...\n");
     let monitoring_handle = start_monitoring_service(
