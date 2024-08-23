@@ -13,14 +13,9 @@ pub fn setup_tracing() {
         // enable everything
         .with_max_level(tracing::Level::INFO)
         .compact()
-        // Display source code file paths
-        .with_file(true)
-        // Display source code line numbers
-        .with_line_number(true)
-        // Display the thread ID an event was recorded on
-        .with_thread_ids(true)
-        // Don't display the event's target (module path)
+        .with_file(false)
+        .with_line_number(false)
+        .with_thread_ids(false)
         .with_target(false)
-        // sets this to be the default, global collector for this application.
         .init();
 }

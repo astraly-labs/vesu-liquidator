@@ -83,50 +83,49 @@ impl Position {
         let debt_name = self.debt.name.to_lowercase();
 
         let prices = oracle_prices.0.lock().await;
-        let collateral_as_dollars = prices
+        let collateral_price = prices
             .get(&collateral_name)
             .ok_or_else(|| anyhow!("Price not found for collateral: {}", collateral_name))?
             .clone();
-        let debt_as_dollars = prices
+        let debt_price = prices
             .get(&debt_name)
             .ok_or_else(|| anyhow!("Price not found for debt: {}", debt_name))?
             .clone();
         drop(prices);
 
-        Ok((self.debt.amount.clone() * debt_as_dollars)
-            / (self.collateral.amount.clone() * collateral_as_dollars))
+        let ltv = (&self.debt.amount * debt_price) / (&self.collateral.amount * collateral_price);
+        Ok(ltv)
     }
 
     /// Computes the liquidable amount for the liquidable position.
+    /// (not accounting for price impact/slippage from swapping)
     pub async fn liquidable_amount(
         &self,
         oracle_prices: &LatestOraclePrices,
     ) -> Result<BigDecimal> {
         let prices = oracle_prices.0.lock().await;
-        let collateral_dollar_price = prices
+        let collateral_price = prices
             .get(&self.collateral.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for collateral: {}", self.collateral.name))?
             .clone();
-        let debt_asset_dollar_price = prices
+        let debt_price = prices
             .get(&self.debt.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for debt: {}", self.debt.name))?
             .clone();
         drop(prices);
 
-        let max_debt_in_dollar = &self.collateral.amount * &self.lltv * collateral_dollar_price;
+        let current_debt = &self.debt.amount * debt_price.clone();
+        let max_debt = &self.collateral.amount * &self.lltv * collateral_price;
 
-        let current_debt = &self.debt.amount * debt_asset_dollar_price.clone();
-        let liquidable_debt_in_dollar = current_debt - max_debt_in_dollar;
-
-        let liquidable_amount =
-            (&liquidable_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals);
+        let liquidable_debt = current_debt - max_debt;
+        let liquidable_amount = (&liquidable_debt / debt_price).round(self.debt.decimals);
 
         Ok(apply_overhead(liquidable_amount))
     }
 
     /// Check if a position is closed.
     pub fn is_closed(&self) -> bool {
-        (self.collateral.amount == BigDecimal::from(0)) && (self.debt.amount == BigDecimal::from(0))
+        (self.collateral.amount == 0.into()) && (self.debt.amount == 0.into())
     }
 
     /// Returns if the position is liquidable or not.
