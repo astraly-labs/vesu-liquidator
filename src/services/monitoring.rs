@@ -116,7 +116,7 @@ impl MonitoringService {
     /// and the transactions needed to liquidate the position.
     async fn compute_profitability(&self, position: &Position) -> Result<(BigDecimal, Vec<Call>)> {
         let liquidable_amount = position
-            .liquidable_amount(&self.config, self.rpc_client.clone(), &self.latest_oracle_prices)
+            .liquidable_amount(&self.latest_oracle_prices)
             .await?;
 
         println!("liquidable_amount : {}", liquidable_amount);
