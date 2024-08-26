@@ -4,14 +4,14 @@ use anyhow::{anyhow, Result};
 use bigdecimal::BigDecimal;
 use starknet::{
     accounts::Call,
-    core::types::{Felt, TransactionFinalityStatus},
+    core::types::{Felt, FunctionCall, TransactionFinalityStatus},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
 use tokio::sync::mpsc::Receiver;
 use tokio::time::interval;
 
 use crate::{
-    config::Config,
+    config::{Config, LIQUIDATION_CONFIG_SELECTOR},
     services::oracle::LatestOraclePrices,
     types::{
         account::StarknetAccount,
@@ -116,14 +116,17 @@ impl MonitoringService {
     /// and the transactions needed to liquidate the position.
     async fn compute_profitability(&self, position: &Position) -> Result<(BigDecimal, Vec<Call>)> {
         let liquidable_amount = position
-            .liquidable_amount(&self.latest_oracle_prices)
+            .liquidable_amount(&self.config, self.rpc_client.clone(), &self.latest_oracle_prices)
             .await?;
+
+        println!("liquidable_amount : {}", liquidable_amount);
+        let liquidation_factor = position.fetch_liquidation_factors(&self.config, self.rpc_client.clone()).await;
 
         let liquidation_txs =
             position.get_liquidation_txs(self.config.singleton_address, liquidable_amount.clone());
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
-        Ok((liquidable_amount - execution_fees, liquidation_txs))
+        Ok((liquidable_amount * liquidation_factor - execution_fees, liquidation_txs))
     }
 
     /// Waits for a TX to be accepted on-chain.

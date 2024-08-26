@@ -4,16 +4,19 @@ use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
 use starknet::accounts::Call;
-use starknet::core::types::Felt;
+use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
 use starknet::core::utils::get_selector_from_name;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::{JsonRpcClient, Provider};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::config::Config;
+use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
+use crate::types::position;
 use crate::utils::apply_overhead;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
@@ -114,26 +117,15 @@ impl Position {
             .clone();
         drop(prices);
 
-        // let max_debt_in_dollar = &self.collateral.amount * &self.lltv * collateral_dollar_price;
-
-        // let current_debt = &self.debt.amount * debt_asset_dollar_price.clone();
-        // let liquidable_debt_in_dollar = current_debt - max_debt_in_dollar;
-
-        // let liquidable_amount =
-        //     (&liquidable_debt_in_dollar / debt_asset_dollar_price).round(self.debt.decimals);
-
-        // Ok(apply_overhead(liquidable_amount))
-
-        let collateral_factor = self.lltv;
-        let total_collateral_value_in_usd = self.collateral.amount * collateral_dollar_price;
-        let current_debt_in_usd = self.debt.amount * debt_asset_dollar_price;
-        let liquidation_bonus = BigDecimal::from(1);
+        let collateral_factor = self.lltv.clone();
+        let total_collateral_value_in_usd = self.collateral.amount.clone() * collateral_dollar_price;
+        let current_debt_in_usd = self.debt.amount.clone() * debt_asset_dollar_price.clone();
         let maximum_health_factor = BigDecimal::new(BigInt::from(999), 3);
 
-        let liquidation_amount_in_usd = ((collateral_factor * total_collateral_value_in_usd) - (maximum_health_factor * current_debt_in_usd))
-                                            / (collateral_factor * (BigDecimal::from(1) + liquidation_bonus) - maximum_health_factor);
+        let liquidation_amount_in_usd = ((collateral_factor.clone() * total_collateral_value_in_usd) - (maximum_health_factor.clone() * current_debt_in_usd))
+                                            / (collateral_factor - maximum_health_factor);
 
-        liquidation_amount_in_usd / debt_asset_price_usd
+        Ok(liquidation_amount_in_usd / debt_asset_dollar_price)
     }
 
     /// Check if a position is closed.
@@ -168,6 +160,20 @@ impl Position {
                 "NOT liquidable.".red()
             }
         );
+    }
+
+    // Fetch liquidation factor from extension contract
+    pub async fn fetch_liquidation_factors(&self, config: &Config, rpc_client: Arc<JsonRpcClient<HttpTransport>>) -> BigDecimal {
+        let calldata = vec![self.pool_id, self.collateral.address, self.debt.address];
+        
+        let liquidation_config_request = &FunctionCall {
+            contract_address: config.extension_address,
+            entry_point_selector: *LIQUIDATION_CONFIG_SELECTOR,
+            calldata,
+        };
+
+        let ltv_config = rpc_client.call(liquidation_config_request, BlockId::Tag(BlockTag::Pending)).await.expect("failed to retrieve");
+        BigDecimal::new(ltv_config[0].to_bigint(), 18)
     }
 
     /// Returns the position as a calldata for the LTV config RPC call.
