@@ -13,4 +13,4 @@ jobs:
     with:
       release_tag_name: ${{ github.event.release.tag_name }}
       docker_context: .
-      package_name: ghcr.io/vesu-liquidator
+      package_name: ghcr.io/astraly-labs/vesu-liquidator
