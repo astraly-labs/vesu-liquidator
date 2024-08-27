@@ -17,7 +17,8 @@ lazy_static! {
     pub static ref VESU_LTV_CONFIG_SELECTOR: Felt = get_selector_from_name("ltv_config").unwrap();
     pub static ref FLASH_LOAN_SELECTOR: Felt = get_selector_from_name("flash_loan").unwrap();
     pub static ref LIQUIDATE_SELECTOR: Felt = get_selector_from_name("liquidate_position").unwrap();
-    pub static ref LIQUIDATION_CONFIG_SELECTOR: Felt = get_selector_from_name("liquidation_config").unwrap();
+    pub static ref LIQUIDATION_CONFIG_SELECTOR: Felt =
+        get_selector_from_name("liquidation_config").unwrap();
 }
 
 #[derive(Debug, Clone)]

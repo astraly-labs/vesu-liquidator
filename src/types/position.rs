@@ -118,13 +118,16 @@ impl Position {
         drop(prices);
 
         let collateral_factor = self.lltv.clone();
-        let total_collateral_value_in_usd = self.collateral.amount.clone() * collateral_dollar_price;
+        let total_collateral_value_in_usd =
+            self.collateral.amount.clone() * collateral_dollar_price;
         let current_debt_in_usd = self.debt.amount.clone() * debt_asset_dollar_price.clone();
         let maximum_health_factor = BigDecimal::new(BigInt::from(999), 3);
 
-        let liquidation_amount_in_usd = ((collateral_factor.clone() * total_collateral_value_in_usd) - (maximum_health_factor.clone() * current_debt_in_usd))
-                                            / (collateral_factor - maximum_health_factor);
-                                            
+        let liquidation_amount_in_usd = ((collateral_factor.clone()
+            * total_collateral_value_in_usd)
+            - (maximum_health_factor.clone() * current_debt_in_usd))
+            / (collateral_factor - maximum_health_factor);
+
         let liquidation_amount_in_usd = apply_overhead(liquidation_amount_in_usd);
         Ok(liquidation_amount_in_usd / debt_asset_dollar_price)
     }
@@ -164,16 +167,23 @@ impl Position {
     }
 
     // Fetch liquidation factor from extension contract
-    pub async fn fetch_liquidation_factors(&self, config: &Config, rpc_client: Arc<JsonRpcClient<HttpTransport>>) -> BigDecimal {
+    pub async fn fetch_liquidation_factors(
+        &self,
+        config: &Config,
+        rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+    ) -> BigDecimal {
         let calldata = vec![self.pool_id, self.collateral.address, self.debt.address];
-        
+
         let liquidation_config_request = &FunctionCall {
             contract_address: config.extension_address,
             entry_point_selector: *LIQUIDATION_CONFIG_SELECTOR,
             calldata,
         };
 
-        let ltv_config = rpc_client.call(liquidation_config_request, BlockId::Tag(BlockTag::Pending)).await.expect("failed to retrieve");
+        let ltv_config = rpc_client
+            .call(liquidation_config_request, BlockId::Tag(BlockTag::Pending))
+            .await
+            .expect("failed to retrieve");
         BigDecimal::new(ltv_config[0].to_bigint(), 18)
     }
 
