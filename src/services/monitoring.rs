@@ -4,14 +4,14 @@ use anyhow::{anyhow, Result};
 use bigdecimal::BigDecimal;
 use starknet::{
     accounts::Call,
-    core::types::{Felt, FunctionCall, TransactionFinalityStatus},
+    core::types::{Felt, TransactionFinalityStatus},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
 use tokio::sync::mpsc::Receiver;
 use tokio::time::interval;
 
 use crate::{
-    config::{Config, LIQUIDATION_CONFIG_SELECTOR},
+    config::Config,
     services::oracle::LatestOraclePrices,
     types::{
         account::StarknetAccount,

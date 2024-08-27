@@ -16,7 +16,6 @@ use tokio::sync::RwLock;
 
 use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
-use crate::types::position;
 use crate::utils::apply_overhead;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
@@ -124,7 +123,8 @@ impl Position {
 
         let liquidation_amount_in_usd = ((collateral_factor.clone() * total_collateral_value_in_usd) - (maximum_health_factor.clone() * current_debt_in_usd))
                                             / (collateral_factor - maximum_health_factor);
-
+                                            
+        let liquidation_amount_in_usd = apply_overhead(liquidation_amount_in_usd);
         Ok(liquidation_amount_in_usd / debt_asset_dollar_price)
     }
 
