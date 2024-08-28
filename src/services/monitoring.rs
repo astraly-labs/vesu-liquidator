@@ -32,7 +32,6 @@ pub struct MonitoringService {
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
     storage: StorageWrapper,
-    latest_block_witnessed: u64,
 }
 
 impl MonitoringService {
@@ -54,7 +53,6 @@ impl MonitoringService {
             positions,
             latest_oracle_prices,
             storage,
-            latest_block_witnessed: 0,
         }
     }
 
@@ -74,8 +72,7 @@ impl MonitoringService {
                     match maybe_position {
                         Some((block_number, new_position)) => {
                             self.positions.0.write().await.insert(new_position.key(), new_position);
-                            self.latest_block_witnessed = block_number;
-                            self.storage.save_state(self.positions.0.read().await.clone(), self.latest_block_witnessed).await?;
+                            self.storage.save_state(self.positions.0.read().await.clone(), block_number).await?;
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));
