@@ -67,15 +67,15 @@ impl MonitoringService {
                 // Monitor the positions every N seconds
                 _ = update_interval.tick() => {
                     self.monitor_positions_liquidability().await?;
-                    self.storage.save_state(self.positions.0.read().await.clone(), self.latest_block_witnessed).await?;
                 }
-
+                
                 // Insert the new positions indexed by the IndexerService
                 maybe_position = self.positions_receiver.recv() => {
                     match maybe_position {
                         Some((block_number, new_position)) => {
                             self.positions.0.write().await.insert(new_position.key(), new_position);
                             self.latest_block_witnessed = block_number;
+                            self.storage.save_state(self.positions.0.read().await.clone(), self.latest_block_witnessed).await?;
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));
