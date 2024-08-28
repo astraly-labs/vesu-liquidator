@@ -19,7 +19,7 @@ use crate::{
     services::{indexer::IndexerService, monitoring::MonitoringService},
     storage::{
         json::JsonStorage,
-        storage_wrapper::{Storage, StorageWrapper},
+        storage_wrapper::Storage,
     },
     types::{account::StarknetAccount, position::Position},
 };
@@ -70,7 +70,7 @@ pub async fn start_all_services(
         account,
         position_receiver,
         latest_oracle_prices,
-        StorageWrapper::Json(storage),
+        Box::new(storage),
     );
 
     // Wait for tasks to complete, and handle any errors
@@ -132,7 +132,7 @@ fn start_monitoring_service(
     account: StarknetAccount,
     position_receiver: Receiver<(u64, Position)>,
     latest_oracle_prices: LatestOraclePrices,
-    storage: StorageWrapper,
+    storage: Box<dyn Storage>,
 ) -> JoinHandle<Result<()>> {
     let monitoring_service = MonitoringService::new(
         config,

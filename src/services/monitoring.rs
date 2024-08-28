@@ -13,7 +13,7 @@ use tokio::time::interval;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
-    storage::storage_wrapper::{Storage, StorageWrapper},
+    storage::storage_wrapper::Storage,
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
@@ -31,7 +31,7 @@ pub struct MonitoringService {
     positions_receiver: Receiver<(u64, Position)>,
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
-    storage: StorageWrapper,
+    storage: Box<dyn Storage>,
 }
 
 impl MonitoringService {
@@ -41,9 +41,9 @@ impl MonitoringService {
         account: StarknetAccount,
         positions_receiver: Receiver<(u64, Position)>,
         latest_oracle_prices: LatestOraclePrices,
-        storage: StorageWrapper,
+        storage: Box<dyn Storage>,
     ) -> MonitoringService {
-        let positions = PositionsMap::from_backup(storage.get_last_saved_positions_map());
+        let positions = PositionsMap::from_storage(storage.get_last_saved_positions_map());
 
         MonitoringService {
             config,

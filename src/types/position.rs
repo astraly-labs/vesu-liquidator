@@ -33,7 +33,7 @@ impl PositionsMap {
         Self(Arc::new(RwLock::new(HashMap::new())))
     }
 
-    pub fn from_backup(map_backup: HashMap<u64, Position>) -> Self {
+    pub fn from_storage(map_backup: HashMap<u64, Position>) -> Self {
         Self(Arc::new(RwLock::new(map_backup)))
     }
 
