@@ -15,9 +15,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
-use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::services::oracle::LatestOraclePrices;
 use crate::utils::apply_overhead;
+use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
     config::LIQUIDATE_SELECTOR, types::asset::Asset, utils::conversions::apibara_field_as_felt,
