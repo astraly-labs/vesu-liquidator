@@ -15,6 +15,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
+use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::services::oracle::LatestOraclePrices;
 use crate::utils::apply_overhead;
 use crate::utils::conversions::big_decimal_to_u256;
@@ -166,6 +167,7 @@ impl Position {
         );
     }
 
+    // TODO : put that in cache in a map with poolid/collateral/debt as key
     // Fetch liquidation factor from extension contract
     pub async fn fetch_liquidation_factors(
         &self,
@@ -184,7 +186,7 @@ impl Position {
             .call(liquidation_config_request, BlockId::Tag(BlockTag::Pending))
             .await
             .expect("failed to retrieve");
-        BigDecimal::new(ltv_config[0].to_bigint(), 18)
+        BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
     }
 
     /// Returns the position as a calldata for the LTV config RPC call.

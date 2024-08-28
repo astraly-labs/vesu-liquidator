@@ -119,7 +119,6 @@ impl MonitoringService {
             .liquidable_amount(&self.latest_oracle_prices)
             .await?;
 
-        println!("liquidable_amount : {}", liquidable_amount);
         let liquidation_factor = position
             .fetch_liquidation_factors(&self.config, self.rpc_client.clone())
             .await;
