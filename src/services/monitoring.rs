@@ -120,7 +120,7 @@ impl MonitoringService {
             .await?;
 
         let liquidation_txs =
-            position.get_liquidation_txs(self.account.account_address() ,self.config.singleton_address, liquidable_amount.clone());
+            position.get_liquidation_txs(self.account ,self.config.singleton_address, self.config.liquidate_address, liquidable_amount.clone());
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
         Ok((liquidable_amount - execution_fees, liquidation_txs))

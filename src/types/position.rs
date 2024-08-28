@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
-use starknet::accounts::Call;
-use starknet::core::types::Felt;
+use starknet::accounts::{Call,ConnectedAccount};
+use starknet::core::types::{Felt, StarknetError};
 use starknet::core::utils::get_selector_from_name;
 use std::collections::HashMap;
 use std::fmt;
@@ -20,6 +20,8 @@ use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
     config::LIQUIDATE_SELECTOR, types::asset::Asset, utils::conversions::apibara_field_as_felt,
 };
+
+use super::account::StarknetAccount;
 
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
@@ -186,8 +188,9 @@ impl Position {
     // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
     pub fn get_liquidation_txs(
         &self,
-        account_address : Felt,
+        account : StarknetAccount,
         singleton_contract: Felt,
+        liquidate_contract: Felt,
         amount_to_liquidate: BigDecimal,
     ) -> Vec<Call> {
         let debt_to_repay = big_decimal_to_u256(amount_to_liquidate);
@@ -202,7 +205,7 @@ impl Position {
             ],
         };
 
-        let liquidate_contract = Liquidate::new(address, account);
+        let liquidate_contract = Liquidate::new(liquidate_contract, account.into());
 
         let liquidate_swap = Swap{};
         let withdraw_swap = Swap{};
@@ -212,32 +215,32 @@ impl Position {
             collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
             debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
             user: cainome::cairo_serde::ContractAddress(self.user_address),
-            recipient: cainome::cairo_serde::ContractAddress(account_address),
+            recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
             min_collateral_to_receive : cainome::cairo_serde::U256::try_from((Felt::ZERO,Felt::ZERO)).expect("failed to parse felt zero"),
             full_liquidation : false,
             liquidate_swap,
             withdraw_swap,
         };
 
-        let liquidate_call = Liquidate::liquidate_getcall(liquidate_params);
+        let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
 
         // https://docs.vesu.xyz/dev-guides/singleton#liquidate_position
-        let liquidate_call = Call {
-            to: singleton_contract,
-            selector: *LIQUIDATE_SELECTOR,
-            calldata: vec![
-                self.pool_id,            // pool_id
-                self.collateral.address, // collateral_asset
-                self.debt.address,       // debt_asset
-                self.user_address,       // user
-                Felt::ZERO,              // receive_as_shares
-                Felt::from(4),           // number of elements below (two U256, low/high)
-                Felt::ZERO,              // min_collateral (U256)
-                Felt::ZERO,
-                Felt::from(debt_to_repay.low()), // debt (U256)
-                Felt::from(debt_to_repay.high()),
-            ],
-        };
+        // let liquidate_call = Call {
+        //     to: singleton_contract,
+        //     selector: *LIQUIDATE_SELECTOR,
+        //     calldata: vec![
+        //         self.pool_id,            // pool_id
+        //         self.collateral.address, // collateral_asset
+        //         self.debt.address,       // debt_asset
+        //         self.user_address,       // user
+        //         Felt::ZERO,              // receive_as_shares
+        //         Felt::from(4),           // number of elements below (two U256, low/high)
+        //         Felt::ZERO,              // min_collateral (U256)
+        //         Felt::ZERO,
+        //         Felt::from(debt_to_repay.low()), // debt (U256)
+        //         Felt::from(debt_to_repay.high()),
+        //     ],
+        // };
 
         vec![approve_call, liquidate_call]
     }
@@ -250,5 +253,14 @@ impl fmt::Display for Position {
             "Position {}/{} of user {:?}",
             self.collateral.name, self.debt.name, self.user_address
         )
+    }
+}
+
+
+#[cfg(test)]
+mod tests{
+    #[test]
+    fn test_liquidate_position(){
+
     }
 }

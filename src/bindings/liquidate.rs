@@ -57,170 +57,6 @@ impl<P: starknet::providers::Provider + Sync> LiquidateReader<P> {
     }
 }
 #[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RouteNode {
-    pub pool_key: PoolKey,
-    pub sqrt_ratio_limit: cainome::cairo_serde::U256,
-    pub skip_ahead: u128,
-}
-impl cainome::cairo_serde::CairoSerde for RouteNode {
-    type RustType = Self;
-    const SERIALIZED_SIZE: std::option::Option<usize> = None;
-    #[inline]
-    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
-        let mut __size = 0;
-        __size += PoolKey::cairo_serialized_size(&__rust.pool_key);
-        __size
-            += cainome::cairo_serde::U256::cairo_serialized_size(
-                &__rust.sqrt_ratio_limit,
-            );
-        __size += u128::cairo_serialized_size(&__rust.skip_ahead);
-        __size
-    }
-    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
-        let mut __out: Vec<starknet::core::types::Felt> = vec![];
-        __out.extend(PoolKey::cairo_serialize(&__rust.pool_key));
-        __out
-            .extend(
-                cainome::cairo_serde::U256::cairo_serialize(&__rust.sqrt_ratio_limit),
-            );
-        __out.extend(u128::cairo_serialize(&__rust.skip_ahead));
-        __out
-    }
-    fn cairo_deserialize(
-        __felts: &[starknet::core::types::Felt],
-        __offset: usize,
-    ) -> cainome::cairo_serde::Result<Self::RustType> {
-        let mut __offset = __offset;
-        let pool_key = PoolKey::cairo_deserialize(__felts, __offset)?;
-        __offset += PoolKey::cairo_serialized_size(&pool_key);
-        let sqrt_ratio_limit = cainome::cairo_serde::U256::cairo_deserialize(
-            __felts,
-            __offset,
-        )?;
-        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&sqrt_ratio_limit);
-        let skip_ahead = u128::cairo_deserialize(__felts, __offset)?;
-        __offset += u128::cairo_serialized_size(&skip_ahead);
-        Ok(RouteNode {
-            pool_key,
-            sqrt_ratio_limit,
-            skip_ahead,
-        })
-    }
-}
-#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
-pub struct LiquidatePosition {
-    pub pool_id: starknet::core::types::Felt,
-    pub collateral_asset: cainome::cairo_serde::ContractAddress,
-    pub debt_asset: cainome::cairo_serde::ContractAddress,
-    pub user: cainome::cairo_serde::ContractAddress,
-    pub residual: cainome::cairo_serde::U256,
-    pub collateral_delta: cainome::cairo_serde::U256,
-    pub debt_delta: cainome::cairo_serde::U256,
-}
-impl cainome::cairo_serde::CairoSerde for LiquidatePosition {
-    type RustType = Self;
-    const SERIALIZED_SIZE: std::option::Option<usize> = None;
-    #[inline]
-    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
-        let mut __size = 0;
-        __size += starknet::core::types::Felt::cairo_serialized_size(&__rust.pool_id);
-        __size
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &__rust.collateral_asset,
-            );
-        __size
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &__rust.debt_asset,
-            );
-        __size
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &__rust.user,
-            );
-        __size += cainome::cairo_serde::U256::cairo_serialized_size(&__rust.residual);
-        __size
-            += cainome::cairo_serde::U256::cairo_serialized_size(
-                &__rust.collateral_delta,
-            );
-        __size += cainome::cairo_serde::U256::cairo_serialized_size(&__rust.debt_delta);
-        __size
-    }
-    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
-        let mut __out: Vec<starknet::core::types::Felt> = vec![];
-        __out.extend(starknet::core::types::Felt::cairo_serialize(&__rust.pool_id));
-        __out
-            .extend(
-                cainome::cairo_serde::ContractAddress::cairo_serialize(
-                    &__rust.collateral_asset,
-                ),
-            );
-        __out
-            .extend(
-                cainome::cairo_serde::ContractAddress::cairo_serialize(
-                    &__rust.debt_asset,
-                ),
-            );
-        __out
-            .extend(
-                cainome::cairo_serde::ContractAddress::cairo_serialize(&__rust.user),
-            );
-        __out.extend(cainome::cairo_serde::U256::cairo_serialize(&__rust.residual));
-        __out
-            .extend(
-                cainome::cairo_serde::U256::cairo_serialize(&__rust.collateral_delta),
-            );
-        __out.extend(cainome::cairo_serde::U256::cairo_serialize(&__rust.debt_delta));
-        __out
-    }
-    fn cairo_deserialize(
-        __felts: &[starknet::core::types::Felt],
-        __offset: usize,
-    ) -> cainome::cairo_serde::Result<Self::RustType> {
-        let mut __offset = __offset;
-        let pool_id = starknet::core::types::Felt::cairo_deserialize(__felts, __offset)?;
-        __offset += starknet::core::types::Felt::cairo_serialized_size(&pool_id);
-        let collateral_asset = cainome::cairo_serde::ContractAddress::cairo_deserialize(
-            __felts,
-            __offset,
-        )?;
-        __offset
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &collateral_asset,
-            );
-        let debt_asset = cainome::cairo_serde::ContractAddress::cairo_deserialize(
-            __felts,
-            __offset,
-        )?;
-        __offset
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(&debt_asset);
-        let user = cainome::cairo_serde::ContractAddress::cairo_deserialize(
-            __felts,
-            __offset,
-        )?;
-        __offset += cainome::cairo_serde::ContractAddress::cairo_serialized_size(&user);
-        let residual = cainome::cairo_serde::U256::cairo_deserialize(__felts, __offset)?;
-        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&residual);
-        let collateral_delta = cainome::cairo_serde::U256::cairo_deserialize(
-            __felts,
-            __offset,
-        )?;
-        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&collateral_delta);
-        let debt_delta = cainome::cairo_serde::U256::cairo_deserialize(
-            __felts,
-            __offset,
-        )?;
-        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&debt_delta);
-        Ok(LiquidatePosition {
-            pool_id,
-            collateral_asset,
-            debt_asset,
-            user,
-            residual,
-            collateral_delta,
-            debt_delta,
-        })
-    }
-}
-#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LiquidateParams {
     pub pool_id: starknet::core::types::Felt,
     pub collateral_asset: cainome::cairo_serde::ContractAddress,
@@ -358,6 +194,342 @@ impl cainome::cairo_serde::CairoSerde for LiquidateParams {
     }
 }
 #[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RouteNode {
+    pub pool_key: PoolKey,
+    pub sqrt_ratio_limit: cainome::cairo_serde::U256,
+    pub skip_ahead: u128,
+}
+impl cainome::cairo_serde::CairoSerde for RouteNode {
+    type RustType = Self;
+    const SERIALIZED_SIZE: std::option::Option<usize> = None;
+    #[inline]
+    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
+        let mut __size = 0;
+        __size += PoolKey::cairo_serialized_size(&__rust.pool_key);
+        __size
+            += cainome::cairo_serde::U256::cairo_serialized_size(
+                &__rust.sqrt_ratio_limit,
+            );
+        __size += u128::cairo_serialized_size(&__rust.skip_ahead);
+        __size
+    }
+    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
+        let mut __out: Vec<starknet::core::types::Felt> = vec![];
+        __out.extend(PoolKey::cairo_serialize(&__rust.pool_key));
+        __out
+            .extend(
+                cainome::cairo_serde::U256::cairo_serialize(&__rust.sqrt_ratio_limit),
+            );
+        __out.extend(u128::cairo_serialize(&__rust.skip_ahead));
+        __out
+    }
+    fn cairo_deserialize(
+        __felts: &[starknet::core::types::Felt],
+        __offset: usize,
+    ) -> cainome::cairo_serde::Result<Self::RustType> {
+        let mut __offset = __offset;
+        let pool_key = PoolKey::cairo_deserialize(__felts, __offset)?;
+        __offset += PoolKey::cairo_serialized_size(&pool_key);
+        let sqrt_ratio_limit = cainome::cairo_serde::U256::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&sqrt_ratio_limit);
+        let skip_ahead = u128::cairo_deserialize(__felts, __offset)?;
+        __offset += u128::cairo_serialized_size(&skip_ahead);
+        Ok(RouteNode {
+            pool_key,
+            sqrt_ratio_limit,
+            skip_ahead,
+        })
+    }
+}
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ICoreDispatcher {
+    pub contract_address: cainome::cairo_serde::ContractAddress,
+}
+impl cainome::cairo_serde::CairoSerde for ICoreDispatcher {
+    type RustType = Self;
+    const SERIALIZED_SIZE: std::option::Option<usize> = None;
+    #[inline]
+    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
+        let mut __size = 0;
+        __size
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &__rust.contract_address,
+            );
+        __size
+    }
+    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
+        let mut __out: Vec<starknet::core::types::Felt> = vec![];
+        __out
+            .extend(
+                cainome::cairo_serde::ContractAddress::cairo_serialize(
+                    &__rust.contract_address,
+                ),
+            );
+        __out
+    }
+    fn cairo_deserialize(
+        __felts: &[starknet::core::types::Felt],
+        __offset: usize,
+    ) -> cainome::cairo_serde::Result<Self::RustType> {
+        let mut __offset = __offset;
+        let contract_address = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &contract_address,
+            );
+        Ok(ICoreDispatcher {
+            contract_address,
+        })
+    }
+}
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ISingletonDispatcher {
+    pub contract_address: cainome::cairo_serde::ContractAddress,
+}
+impl cainome::cairo_serde::CairoSerde for ISingletonDispatcher {
+    type RustType = Self;
+    const SERIALIZED_SIZE: std::option::Option<usize> = None;
+    #[inline]
+    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
+        let mut __size = 0;
+        __size
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &__rust.contract_address,
+            );
+        __size
+    }
+    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
+        let mut __out: Vec<starknet::core::types::Felt> = vec![];
+        __out
+            .extend(
+                cainome::cairo_serde::ContractAddress::cairo_serialize(
+                    &__rust.contract_address,
+                ),
+            );
+        __out
+    }
+    fn cairo_deserialize(
+        __felts: &[starknet::core::types::Felt],
+        __offset: usize,
+    ) -> cainome::cairo_serde::Result<Self::RustType> {
+        let mut __offset = __offset;
+        let contract_address = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &contract_address,
+            );
+        Ok(ISingletonDispatcher {
+            contract_address,
+        })
+    }
+}
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Swap {
+    pub route: Vec<RouteNode>,
+    pub token_amount: TokenAmount,
+    pub limit_amount: u128,
+}
+impl cainome::cairo_serde::CairoSerde for Swap {
+    type RustType = Self;
+    const SERIALIZED_SIZE: std::option::Option<usize> = None;
+    #[inline]
+    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
+        let mut __size = 0;
+        __size += Vec::<RouteNode>::cairo_serialized_size(&__rust.route);
+        __size += TokenAmount::cairo_serialized_size(&__rust.token_amount);
+        __size += u128::cairo_serialized_size(&__rust.limit_amount);
+        __size
+    }
+    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
+        let mut __out: Vec<starknet::core::types::Felt> = vec![];
+        __out.extend(Vec::<RouteNode>::cairo_serialize(&__rust.route));
+        __out.extend(TokenAmount::cairo_serialize(&__rust.token_amount));
+        __out.extend(u128::cairo_serialize(&__rust.limit_amount));
+        __out
+    }
+    fn cairo_deserialize(
+        __felts: &[starknet::core::types::Felt],
+        __offset: usize,
+    ) -> cainome::cairo_serde::Result<Self::RustType> {
+        let mut __offset = __offset;
+        let route = Vec::<RouteNode>::cairo_deserialize(__felts, __offset)?;
+        __offset += Vec::<RouteNode>::cairo_serialized_size(&route);
+        let token_amount = TokenAmount::cairo_deserialize(__felts, __offset)?;
+        __offset += TokenAmount::cairo_serialized_size(&token_amount);
+        let limit_amount = u128::cairo_deserialize(__felts, __offset)?;
+        __offset += u128::cairo_serialized_size(&limit_amount);
+        Ok(Swap {
+            route,
+            token_amount,
+            limit_amount,
+        })
+    }
+}
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LiquidatePosition {
+    pub pool_id: starknet::core::types::Felt,
+    pub collateral_asset: cainome::cairo_serde::ContractAddress,
+    pub debt_asset: cainome::cairo_serde::ContractAddress,
+    pub user: cainome::cairo_serde::ContractAddress,
+    pub residual: cainome::cairo_serde::U256,
+    pub collateral_delta: cainome::cairo_serde::U256,
+    pub debt_delta: cainome::cairo_serde::U256,
+}
+impl cainome::cairo_serde::CairoSerde for LiquidatePosition {
+    type RustType = Self;
+    const SERIALIZED_SIZE: std::option::Option<usize> = None;
+    #[inline]
+    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
+        let mut __size = 0;
+        __size += starknet::core::types::Felt::cairo_serialized_size(&__rust.pool_id);
+        __size
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &__rust.collateral_asset,
+            );
+        __size
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &__rust.debt_asset,
+            );
+        __size
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &__rust.user,
+            );
+        __size += cainome::cairo_serde::U256::cairo_serialized_size(&__rust.residual);
+        __size
+            += cainome::cairo_serde::U256::cairo_serialized_size(
+                &__rust.collateral_delta,
+            );
+        __size += cainome::cairo_serde::U256::cairo_serialized_size(&__rust.debt_delta);
+        __size
+    }
+    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
+        let mut __out: Vec<starknet::core::types::Felt> = vec![];
+        __out.extend(starknet::core::types::Felt::cairo_serialize(&__rust.pool_id));
+        __out
+            .extend(
+                cainome::cairo_serde::ContractAddress::cairo_serialize(
+                    &__rust.collateral_asset,
+                ),
+            );
+        __out
+            .extend(
+                cainome::cairo_serde::ContractAddress::cairo_serialize(
+                    &__rust.debt_asset,
+                ),
+            );
+        __out
+            .extend(
+                cainome::cairo_serde::ContractAddress::cairo_serialize(&__rust.user),
+            );
+        __out.extend(cainome::cairo_serde::U256::cairo_serialize(&__rust.residual));
+        __out
+            .extend(
+                cainome::cairo_serde::U256::cairo_serialize(&__rust.collateral_delta),
+            );
+        __out.extend(cainome::cairo_serde::U256::cairo_serialize(&__rust.debt_delta));
+        __out
+    }
+    fn cairo_deserialize(
+        __felts: &[starknet::core::types::Felt],
+        __offset: usize,
+    ) -> cainome::cairo_serde::Result<Self::RustType> {
+        let mut __offset = __offset;
+        let pool_id = starknet::core::types::Felt::cairo_deserialize(__felts, __offset)?;
+        __offset += starknet::core::types::Felt::cairo_serialized_size(&pool_id);
+        let collateral_asset = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &collateral_asset,
+            );
+        let debt_asset = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(&debt_asset);
+        let user = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset += cainome::cairo_serde::ContractAddress::cairo_serialized_size(&user);
+        let residual = cainome::cairo_serde::U256::cairo_deserialize(__felts, __offset)?;
+        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&residual);
+        let collateral_delta = cainome::cairo_serde::U256::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&collateral_delta);
+        let debt_delta = cainome::cairo_serde::U256::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&debt_delta);
+        Ok(LiquidatePosition {
+            pool_id,
+            collateral_asset,
+            debt_asset,
+            user,
+            residual,
+            collateral_delta,
+            debt_delta,
+        })
+    }
+}
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TokenAmount {
+    pub token: cainome::cairo_serde::ContractAddress,
+    pub amount: I129,
+}
+impl cainome::cairo_serde::CairoSerde for TokenAmount {
+    type RustType = Self;
+    const SERIALIZED_SIZE: std::option::Option<usize> = None;
+    #[inline]
+    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
+        let mut __size = 0;
+        __size
+            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
+                &__rust.token,
+            );
+        __size += I129::cairo_serialized_size(&__rust.amount);
+        __size
+    }
+    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
+        let mut __out: Vec<starknet::core::types::Felt> = vec![];
+        __out
+            .extend(
+                cainome::cairo_serde::ContractAddress::cairo_serialize(&__rust.token),
+            );
+        __out.extend(I129::cairo_serialize(&__rust.amount));
+        __out
+    }
+    fn cairo_deserialize(
+        __felts: &[starknet::core::types::Felt],
+        __offset: usize,
+    ) -> cainome::cairo_serde::Result<Self::RustType> {
+        let mut __offset = __offset;
+        let token = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset += cainome::cairo_serde::ContractAddress::cairo_serialized_size(&token);
+        let amount = I129::cairo_deserialize(__felts, __offset)?;
+        __offset += I129::cairo_serialized_size(&amount);
+        Ok(TokenAmount { token, amount })
+    }
+}
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PoolKey {
     pub token0: cainome::cairo_serde::ContractAddress,
     pub token1: cainome::cairo_serde::ContractAddress,
@@ -475,18 +647,25 @@ impl cainome::cairo_serde::CairoSerde for I129 {
     }
 }
 #[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ICoreDispatcher {
-    pub contract_address: cainome::cairo_serde::ContractAddress,
+pub struct LiquidateResponse {
+    pub liquidated_collateral: cainome::cairo_serde::U256,
+    pub repaid_debt: cainome::cairo_serde::U256,
+    pub residual_collateral: cainome::cairo_serde::U256,
 }
-impl cainome::cairo_serde::CairoSerde for ICoreDispatcher {
+impl cainome::cairo_serde::CairoSerde for LiquidateResponse {
     type RustType = Self;
     const SERIALIZED_SIZE: std::option::Option<usize> = None;
     #[inline]
     fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
         let mut __size = 0;
         __size
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &__rust.contract_address,
+            += cainome::cairo_serde::U256::cairo_serialized_size(
+                &__rust.liquidated_collateral,
+            );
+        __size += cainome::cairo_serde::U256::cairo_serialized_size(&__rust.repaid_debt);
+        __size
+            += cainome::cairo_serde::U256::cairo_serialized_size(
+                &__rust.residual_collateral,
             );
         __size
     }
@@ -494,9 +673,14 @@ impl cainome::cairo_serde::CairoSerde for ICoreDispatcher {
         let mut __out: Vec<starknet::core::types::Felt> = vec![];
         __out
             .extend(
-                cainome::cairo_serde::ContractAddress::cairo_serialize(
-                    &__rust.contract_address,
+                cainome::cairo_serde::U256::cairo_serialize(
+                    &__rust.liquidated_collateral,
                 ),
+            );
+        __out.extend(cainome::cairo_serde::U256::cairo_serialize(&__rust.repaid_debt));
+        __out
+            .extend(
+                cainome::cairo_serde::U256::cairo_serialize(&__rust.residual_collateral),
             );
         __out
     }
@@ -505,145 +689,28 @@ impl cainome::cairo_serde::CairoSerde for ICoreDispatcher {
         __offset: usize,
     ) -> cainome::cairo_serde::Result<Self::RustType> {
         let mut __offset = __offset;
-        let contract_address = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+        let liquidated_collateral = cainome::cairo_serde::U256::cairo_deserialize(
             __felts,
             __offset,
         )?;
         __offset
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &contract_address,
-            );
-        Ok(ICoreDispatcher {
-            contract_address,
-        })
-    }
-}
-#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Swap {
-    pub route: Vec<RouteNode>,
-    pub token_amount: TokenAmount,
-    pub limit_amount: u128,
-}
-impl cainome::cairo_serde::CairoSerde for Swap {
-    type RustType = Self;
-    const SERIALIZED_SIZE: std::option::Option<usize> = None;
-    #[inline]
-    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
-        let mut __size = 0;
-        __size += Vec::<RouteNode>::cairo_serialized_size(&__rust.route);
-        __size += TokenAmount::cairo_serialized_size(&__rust.token_amount);
-        __size += u128::cairo_serialized_size(&__rust.limit_amount);
-        __size
-    }
-    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
-        let mut __out: Vec<starknet::core::types::Felt> = vec![];
-        __out.extend(Vec::<RouteNode>::cairo_serialize(&__rust.route));
-        __out.extend(TokenAmount::cairo_serialize(&__rust.token_amount));
-        __out.extend(u128::cairo_serialize(&__rust.limit_amount));
-        __out
-    }
-    fn cairo_deserialize(
-        __felts: &[starknet::core::types::Felt],
-        __offset: usize,
-    ) -> cainome::cairo_serde::Result<Self::RustType> {
-        let mut __offset = __offset;
-        let route = Vec::<RouteNode>::cairo_deserialize(__felts, __offset)?;
-        __offset += Vec::<RouteNode>::cairo_serialized_size(&route);
-        let token_amount = TokenAmount::cairo_deserialize(__felts, __offset)?;
-        __offset += TokenAmount::cairo_serialized_size(&token_amount);
-        let limit_amount = u128::cairo_deserialize(__felts, __offset)?;
-        __offset += u128::cairo_serialized_size(&limit_amount);
-        Ok(Swap {
-            route,
-            token_amount,
-            limit_amount,
-        })
-    }
-}
-#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ISingletonDispatcher {
-    pub contract_address: cainome::cairo_serde::ContractAddress,
-}
-impl cainome::cairo_serde::CairoSerde for ISingletonDispatcher {
-    type RustType = Self;
-    const SERIALIZED_SIZE: std::option::Option<usize> = None;
-    #[inline]
-    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
-        let mut __size = 0;
-        __size
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &__rust.contract_address,
-            );
-        __size
-    }
-    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
-        let mut __out: Vec<starknet::core::types::Felt> = vec![];
-        __out
-            .extend(
-                cainome::cairo_serde::ContractAddress::cairo_serialize(
-                    &__rust.contract_address,
-                ),
-            );
-        __out
-    }
-    fn cairo_deserialize(
-        __felts: &[starknet::core::types::Felt],
-        __offset: usize,
-    ) -> cainome::cairo_serde::Result<Self::RustType> {
-        let mut __offset = __offset;
-        let contract_address = cainome::cairo_serde::ContractAddress::cairo_deserialize(
+            += cainome::cairo_serde::U256::cairo_serialized_size(&liquidated_collateral);
+        let repaid_debt = cainome::cairo_serde::U256::cairo_deserialize(
+            __felts,
+            __offset,
+        )?;
+        __offset += cainome::cairo_serde::U256::cairo_serialized_size(&repaid_debt);
+        let residual_collateral = cainome::cairo_serde::U256::cairo_deserialize(
             __felts,
             __offset,
         )?;
         __offset
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &contract_address,
-            );
-        Ok(ISingletonDispatcher {
-            contract_address,
+            += cainome::cairo_serde::U256::cairo_serialized_size(&residual_collateral);
+        Ok(LiquidateResponse {
+            liquidated_collateral,
+            repaid_debt,
+            residual_collateral,
         })
-    }
-}
-#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
-pub struct TokenAmount {
-    pub token: cainome::cairo_serde::ContractAddress,
-    pub amount: I129,
-}
-impl cainome::cairo_serde::CairoSerde for TokenAmount {
-    type RustType = Self;
-    const SERIALIZED_SIZE: std::option::Option<usize> = None;
-    #[inline]
-    fn cairo_serialized_size(__rust: &Self::RustType) -> usize {
-        let mut __size = 0;
-        __size
-            += cainome::cairo_serde::ContractAddress::cairo_serialized_size(
-                &__rust.token,
-            );
-        __size += I129::cairo_serialized_size(&__rust.amount);
-        __size
-    }
-    fn cairo_serialize(__rust: &Self::RustType) -> Vec<starknet::core::types::Felt> {
-        let mut __out: Vec<starknet::core::types::Felt> = vec![];
-        __out
-            .extend(
-                cainome::cairo_serde::ContractAddress::cairo_serialize(&__rust.token),
-            );
-        __out.extend(I129::cairo_serialize(&__rust.amount));
-        __out
-    }
-    fn cairo_deserialize(
-        __felts: &[starknet::core::types::Felt],
-        __offset: usize,
-    ) -> cainome::cairo_serde::Result<Self::RustType> {
-        let mut __offset = __offset;
-        let token = cainome::cairo_serde::ContractAddress::cairo_deserialize(
-            __felts,
-            __offset,
-        )?;
-        __offset += cainome::cairo_serde::ContractAddress::cairo_serialized_size(&token);
-        let amount = I129::cairo_deserialize(__felts, __offset)?;
-        __offset += I129::cairo_serialized_size(&amount);
-        Ok(TokenAmount { token, amount })
     }
 }
 #[derive(Debug, PartialEq, PartialOrd, Clone, serde::Serialize, serde::Deserialize)]
@@ -723,8 +790,10 @@ impl TryFrom<starknet::core::types::EmittedEvent> for Event {
                 Err(e) => {
                     return Err(
                         format!(
-                            "Could not deserialize field {} for {}: {:?}", "pool_id",
-                            "LiquidatePosition", e
+                            "Could not deserialize field {} for {}: {:?}",
+                            "pool_id",
+                            "LiquidatePosition",
+                            e,
                         ),
                     );
                 }
@@ -739,7 +808,9 @@ impl TryFrom<starknet::core::types::EmittedEvent> for Event {
                     return Err(
                         format!(
                             "Could not deserialize field {} for {}: {:?}",
-                            "collateral_asset", "LiquidatePosition", e
+                            "collateral_asset",
+                            "LiquidatePosition",
+                            e,
                         ),
                     );
                 }
@@ -756,8 +827,10 @@ impl TryFrom<starknet::core::types::EmittedEvent> for Event {
                 Err(e) => {
                     return Err(
                         format!(
-                            "Could not deserialize field {} for {}: {:?}", "debt_asset",
-                            "LiquidatePosition", e
+                            "Could not deserialize field {} for {}: {:?}",
+                            "debt_asset",
+                            "LiquidatePosition",
+                            e,
                         ),
                     );
                 }
@@ -774,8 +847,10 @@ impl TryFrom<starknet::core::types::EmittedEvent> for Event {
                 Err(e) => {
                     return Err(
                         format!(
-                            "Could not deserialize field {} for {}: {:?}", "user",
-                            "LiquidatePosition", e
+                            "Could not deserialize field {} for {}: {:?}",
+                            "user",
+                            "LiquidatePosition",
+                            e,
                         ),
                     );
                 }
@@ -790,8 +865,10 @@ impl TryFrom<starknet::core::types::EmittedEvent> for Event {
                 Err(e) => {
                     return Err(
                         format!(
-                            "Could not deserialize field {} for {}: {:?}", "residual",
-                            "LiquidatePosition", e
+                            "Could not deserialize field {} for {}: {:?}",
+                            "residual",
+                            "LiquidatePosition",
+                            e,
                         ),
                     );
                 }
@@ -806,7 +883,9 @@ impl TryFrom<starknet::core::types::EmittedEvent> for Event {
                     return Err(
                         format!(
                             "Could not deserialize field {} for {}: {:?}",
-                            "collateral_delta", "LiquidatePosition", e
+                            "collateral_delta",
+                            "LiquidatePosition",
+                            e,
                         ),
                     );
                 }
@@ -821,8 +900,10 @@ impl TryFrom<starknet::core::types::EmittedEvent> for Event {
                 Err(e) => {
                     return Err(
                         format!(
-                            "Could not deserialize field {} for {}: {:?}", "debt_delta",
-                            "LiquidatePosition", e
+                            "Could not deserialize field {} for {}: {:?}",
+                            "debt_delta",
+                            "LiquidatePosition",
+                            e,
                         ),
                     );
                 }
