@@ -13,6 +13,9 @@ keywords = ["vesu", "liquidator", "bot", "starknet"]
 anyhow = "1.0.86"
 bigdecimal = "0.4.5"
 clap = { version = "4.5.16", features = ["derive"] }
+cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.3.1", features = [
+    "abigen-rs",
+] }
 colored = "2.1.0"
 dotenvy = "0.15.7"
 futures-util = "0.3.30"

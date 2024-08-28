@@ -3,6 +3,7 @@ pub mod config;
 pub mod services;
 pub mod types;
 pub mod utils;
+pub mod bindings;
 
 use std::sync::Arc;
 

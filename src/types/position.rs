@@ -11,6 +11,8 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::bindings::liquidate::{self, Liquidate, LiquidateParams, Swap};
+
 use crate::config::Config;
 use crate::services::oracle::LatestOraclePrices;
 use crate::utils::apply_overhead;
@@ -184,6 +186,7 @@ impl Position {
     // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
     pub fn get_liquidation_txs(
         &self,
+        account_address : Felt,
         singleton_contract: Felt,
         amount_to_liquidate: BigDecimal,
     ) -> Vec<Call> {
@@ -198,6 +201,25 @@ impl Position {
                 Felt::from(debt_to_repay.high()),
             ],
         };
+
+        let liquidate_contract = Liquidate::new(address, account);
+
+        let liquidate_swap = Swap{};
+        let withdraw_swap = Swap{};
+
+        let liquidate_params = LiquidateParams {
+            pool_id : self.pool_id,
+            collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
+            debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
+            user: cainome::cairo_serde::ContractAddress(self.user_address),
+            recipient: cainome::cairo_serde::ContractAddress(account_address),
+            min_collateral_to_receive : cainome::cairo_serde::U256::try_from((Felt::ZERO,Felt::ZERO)).expect("failed to parse felt zero"),
+            full_liquidation : false,
+            liquidate_swap,
+            withdraw_swap,
+        };
+
+        let liquidate_call = Liquidate::liquidate_getcall(liquidate_params);
 
         // https://docs.vesu.xyz/dev-guides/singleton#liquidate_position
         let liquidate_call = Call {
