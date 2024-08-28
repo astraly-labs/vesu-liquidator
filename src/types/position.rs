@@ -3,6 +3,7 @@ use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
+use serde::{Deserialize, Serialize};
 use starknet::accounts::Call;
 use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
 use starknet::core::utils::get_selector_from_name;
@@ -32,6 +33,10 @@ impl PositionsMap {
         Self(Arc::new(RwLock::new(HashMap::new())))
     }
 
+    pub fn from_backup(map_backup: HashMap<u64, Position>) -> Self {
+        Self(Arc::new(RwLock::new(map_backup)))
+    }
+
     pub async fn insert(&self, position: Position) -> Option<Position> {
         self.0.write().await.insert(position.key(), position)
     }
@@ -51,7 +56,7 @@ impl Default for PositionsMap {
     }
 }
 
-#[derive(Default, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Hash, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Position {
     pub user_address: Felt,
     pub pool_id: Felt,

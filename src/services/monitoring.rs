@@ -13,6 +13,7 @@ use tokio::time::interval;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
+    storage::storage::{Storage, StorageWrapper},
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
@@ -27,9 +28,11 @@ pub struct MonitoringService {
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
-    positions_receiver: Receiver<Position>,
+    positions_receiver: Receiver<(u64, Position)>,
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
+    storage: StorageWrapper,
+    latest_block_witnessed: u64,
 }
 
 impl MonitoringService {
@@ -37,16 +40,21 @@ impl MonitoringService {
         config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         account: StarknetAccount,
-        positions_receiver: Receiver<Position>,
+        positions_receiver: Receiver<(u64, Position)>,
         latest_oracle_prices: LatestOraclePrices,
+        storage: StorageWrapper,
     ) -> MonitoringService {
+        let positions = PositionsMap::from_backup(storage.get_last_saved_positions_map());
+
         MonitoringService {
             config,
             rpc_client,
             account,
             positions_receiver,
-            positions: PositionsMap::new(),
+            positions,
             latest_oracle_prices,
+            storage,
+            latest_block_witnessed: 0,
         }
     }
 
@@ -59,13 +67,15 @@ impl MonitoringService {
                 // Monitor the positions every N seconds
                 _ = update_interval.tick() => {
                     self.monitor_positions_liquidability().await?;
+                    self.storage.save_state(self.positions.0.read().await.clone(), self.latest_block_witnessed).await?;
                 }
 
                 // Insert the new positions indexed by the IndexerService
                 maybe_position = self.positions_receiver.recv() => {
                     match maybe_position {
-                        Some(new_position) => {
+                        Some((block_number, new_position)) => {
                             self.positions.0.write().await.insert(new_position.key(), new_position);
+                            self.latest_block_witnessed = block_number;
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));
