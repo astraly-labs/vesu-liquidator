@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use crate::types::position::{self, Position};
 
-use super::storage::Storage;
+use super::storage_wrapper::Storage;
 
 #[derive(Serialize, Default)]
 struct DataAsJson {
@@ -54,10 +54,10 @@ impl Storage for JsonStorage {
                     //safe unwrap we check everything before
                     lbi.as_u64().unwrap()
                 } else {
-                    0 as u64
+                    0_u64
                 }
             }
-            _ => 0 as u64,
+            _ => 0_u64,
         };
         // no need to go further if last block indexed is genesis
         if last_block_indexed == 0 {
@@ -86,7 +86,7 @@ impl Storage for JsonStorage {
     ) -> anyhow::Result<()> {
         let map = DataAsJson {
             last_block_indexed,
-            positions: positions,
+            positions,
         };
         // Serialize the HashMap to a JSON string
         let json = serde_json::to_string_pretty(&map)?;

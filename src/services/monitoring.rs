@@ -13,7 +13,7 @@ use tokio::time::interval;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
-    storage::storage::{Storage, StorageWrapper},
+    storage::storage_wrapper::{Storage, StorageWrapper},
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},

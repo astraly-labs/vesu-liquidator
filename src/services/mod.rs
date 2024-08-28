@@ -19,7 +19,7 @@ use crate::{
     services::{indexer::IndexerService, monitoring::MonitoringService},
     storage::{
         json::JsonStorage,
-        storage::{Storage, StorageWrapper},
+        storage_wrapper::{Storage, StorageWrapper},
     },
     types::{account::StarknetAccount, position::Position},
 };
