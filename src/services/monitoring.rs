@@ -119,11 +119,18 @@ impl MonitoringService {
             .liquidable_amount(&self.latest_oracle_prices)
             .await?;
 
+        let liquidation_factor = position
+            .fetch_liquidation_factors(&self.config, self.rpc_client.clone())
+            .await;
+
         let liquidation_txs =
             position.get_liquidation_txs(self.config.singleton_address, liquidable_amount.clone());
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
-        Ok((liquidable_amount - execution_fees, liquidation_txs))
+        Ok((
+            liquidable_amount * liquidation_factor - execution_fees,
+            liquidation_txs,
+        ))
     }
 
     /// Waits for a TX to be accepted on-chain.

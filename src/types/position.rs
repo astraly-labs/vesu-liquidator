@@ -1,19 +1,23 @@
 use anyhow::{anyhow, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
+use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
 use starknet::accounts::Call;
-use starknet::core::types::Felt;
+use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
 use starknet::core::utils::get_selector_from_name;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::{JsonRpcClient, Provider};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::config::Config;
+use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
 use crate::utils::apply_overhead;
+use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
     config::LIQUIDATE_SELECTOR, types::asset::Asset, utils::conversions::apibara_field_as_felt,
@@ -104,23 +108,29 @@ impl Position {
         oracle_prices: &LatestOraclePrices,
     ) -> Result<BigDecimal> {
         let prices = oracle_prices.0.lock().await;
-        let collateral_price = prices
+        let collateral_dollar_price = prices
             .get(&self.collateral.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for collateral: {}", self.collateral.name))?
             .clone();
-        let debt_price = prices
+        let debt_asset_dollar_price = prices
             .get(&self.debt.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for debt: {}", self.debt.name))?
             .clone();
         drop(prices);
 
-        let current_debt = &self.debt.amount * debt_price.clone();
-        let max_debt = &self.collateral.amount * &self.lltv * collateral_price;
+        let collateral_factor = self.lltv.clone();
+        let total_collateral_value_in_usd =
+            self.collateral.amount.clone() * collateral_dollar_price;
+        let current_debt_in_usd = self.debt.amount.clone() * debt_asset_dollar_price.clone();
+        let maximum_health_factor = BigDecimal::new(BigInt::from(999), 3);
 
-        let liquidable_debt = current_debt - max_debt;
-        let liquidable_amount = (&liquidable_debt / debt_price).round(self.debt.decimals);
+        let liquidation_amount_in_usd = ((collateral_factor.clone()
+            * total_collateral_value_in_usd)
+            - (maximum_health_factor.clone() * current_debt_in_usd))
+            / (collateral_factor - maximum_health_factor);
 
-        Ok(apply_overhead(liquidable_amount))
+        let liquidation_amount_in_usd = apply_overhead(liquidation_amount_in_usd);
+        Ok(liquidation_amount_in_usd / debt_asset_dollar_price)
     }
 
     /// Check if a position is closed.
@@ -155,6 +165,28 @@ impl Position {
                 "NOT liquidable.".red()
             }
         );
+    }
+
+    // TODO : put that in cache in a map with poolid/collateral/debt as key
+    // Fetch liquidation factor from extension contract
+    pub async fn fetch_liquidation_factors(
+        &self,
+        config: &Config,
+        rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+    ) -> BigDecimal {
+        let calldata = vec![self.pool_id, self.collateral.address, self.debt.address];
+
+        let liquidation_config_request = &FunctionCall {
+            contract_address: config.extension_address,
+            entry_point_selector: *LIQUIDATION_CONFIG_SELECTOR,
+            calldata,
+        };
+
+        let ltv_config = rpc_client
+            .call(liquidation_config_request, BlockId::Tag(BlockTag::Pending))
+            .await
+            .expect("failed to retrieve");
+        BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
     }
 
     /// Returns the position as a calldata for the LTV config RPC call.
