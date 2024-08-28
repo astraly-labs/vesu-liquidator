@@ -17,10 +17,7 @@ use crate::{
     cli::RunCmd,
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
-    storage::{
-        json::JsonStorage,
-        storage_wrapper::Storage,
-    },
+    storage::{json::JsonStorage, storage_wrapper::Storage},
     types::{account::StarknetAccount, position::Position},
 };
 

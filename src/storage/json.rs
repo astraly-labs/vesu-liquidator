@@ -100,7 +100,7 @@ impl Storage for JsonStorage {
                 file.write_all(json.as_bytes())?;
                 Ok(())
             })();
-            
+
             result.map_err(|e| e.into())
         })
     }

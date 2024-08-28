@@ -66,7 +66,7 @@ impl MonitoringService {
                 _ = update_interval.tick() => {
                     self.monitor_positions_liquidability().await?;
                 }
-                
+
                 // Insert the new positions indexed by the IndexerService
                 maybe_position = self.positions_receiver.recv() => {
                     match maybe_position {

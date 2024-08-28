@@ -6,7 +6,7 @@ use futures_util::Future;
 use crate::types::position::{self, Position};
 
 pub trait Storage: Send + Sync {
-    fn load_state(&mut self)  -> Result<(u64, HashMap<u64, Position>)>;
+    fn load_state(&mut self) -> Result<(u64, HashMap<u64, Position>)>;
     fn save_state(
         &mut self,
         position: HashMap<u64, position::Position>,
