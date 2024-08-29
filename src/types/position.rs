@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
+use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
+use cainome::cairo_serde::CairoSerde;
 use colored::Colorize;
+use serde::{Deserialize, Serialize};
 use starknet::accounts::{Account, Call, ConnectedAccount};
 use starknet::core::types::{Felt, StarknetError};
 use starknet::core::utils::get_selector_from_name;
@@ -11,7 +14,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::bindings::liquidate::{self, Liquidate, LiquidateParams, Swap};
+use crate::bindings::liquidate::{self, Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
 
 use crate::config::Config;
 use crate::services::oracle::LatestOraclePrices;
@@ -26,6 +29,13 @@ use super::account::StarknetAccount;
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
 pub struct PositionsMap(pub Arc<RwLock<HashMap<u64, Position>>>);
+
+#[derive(Deserialize, Debug)]
+pub struct EkuboApiGetRouteResponse {
+    specified_amount: BigInt,
+    amount: BigInt,
+    route: Vec<RouteNode>,
+}
 
 impl PositionsMap {
     pub fn new() -> Self {
@@ -108,23 +118,29 @@ impl Position {
         oracle_prices: &LatestOraclePrices,
     ) -> Result<BigDecimal> {
         let prices = oracle_prices.0.lock().await;
-        let collateral_price = prices
+        let collateral_dollar_price = prices
             .get(&self.collateral.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for collateral: {}", self.collateral.name))?
             .clone();
-        let debt_price = prices
+        let debt_dollar_price = prices
             .get(&self.debt.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for debt: {}", self.debt.name))?
             .clone();
         drop(prices);
 
-        let current_debt = &self.debt.amount * debt_price.clone();
-        let max_debt = &self.collateral.amount * &self.lltv * collateral_price;
+        let collateral_factor = self.lltv.clone();
+        let total_collateral_value_in_usd =
+            self.collateral.amount.clone() * collateral_dollar_price.clone();
+        let current_debt_in_usd = self.debt.amount.clone() * debt_dollar_price.clone();
+        let maximum_health_factor = BigDecimal::new(BigInt::from(999), 3);
 
-        let liquidable_debt = current_debt - max_debt;
-        let liquidable_amount = (&liquidable_debt / debt_price).round(self.debt.decimals);
+        let liquidation_amount_in_usd = ((collateral_factor.clone()
+            * total_collateral_value_in_usd)
+            - (maximum_health_factor.clone() * current_debt_in_usd))
+            / (collateral_factor - maximum_health_factor);
 
-        Ok(apply_overhead(liquidable_amount))
+        let liquidation_amount_in_usd = apply_overhead(liquidation_amount_in_usd);
+        Ok((liquidation_amount_in_usd / debt_dollar_price).round(self.debt.decimals))
     }
 
     /// Check if a position is closed.
@@ -183,65 +199,81 @@ impl Position {
         hasher.finish()
     }
 
+    pub async fn get_ekubo_route(amount_as_string: String, from_token: String, to_token: String) -> Result<Vec<RouteNode>> {
+        let ekubo_api_endpoint = format!("https://mainnet-api.ekubo.org/quote/{amount_as_string}/{from_token}/{to_token}");
+        let http_client = reqwest::Client::new();
+        let response = http_client.get(ekubo_api_endpoint).send().await?;
+        let response_text = response.text().await?;
+        let ekubo_response: EkuboApiGetRouteResponse = serde_json::from_str(&response_text)?;
+        Ok(ekubo_response.route)
+    }
+
     /// Returns the TX necessary to liquidate this position (approve + liquidate).
     // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
-    pub fn get_liquidation_txs(
+    pub async fn get_liquidation_txs(
         &self,
         account: &StarknetAccount,
         singleton_contract: Felt,
         liquidate_contract: Felt,
         amount_to_liquidate: BigDecimal,
-    ) -> Vec<Call> {
-        let debt_to_repay = big_decimal_to_u256(amount_to_liquidate);
-
-        let approve_call = Call {
-            to: self.debt.address,
-            selector: get_selector_from_name("approve").unwrap(),
-            calldata: vec![
-                singleton_contract,
-                Felt::from(debt_to_repay.low()),
-                Felt::from(debt_to_repay.high()),
-            ],
+        collateral_retrieved: BigDecimal
+    ) -> Result<Vec<Call>> {
+        let liquidate_token = TokenAmount {
+            token: cainome::cairo_serde::ContractAddress(self.debt.address),
+            amount: I129::cairo_deserialize(
+                &vec![Felt::from(amount_to_liquidate.clone().with_scale(0).into_bigint_and_exponent().0)],
+                0,
+            )
+            .expect("failed to deserialize amount to liquidiate"),
         };
 
-        // let liquidate_contract = Liquidate::new(liquidate_contract, account);
+        let withdraw_token = TokenAmount {
+            token: cainome::cairo_serde::ContractAddress(self.collateral.address),
+            amount: I129::cairo_deserialize(
+                &vec![Felt::from(collateral_retrieved.clone().with_scale(0).into_bigint_and_exponent().0)],
+                0,
+            )
+            .expect("failed to deserialize amount to liquidiate"),
+        };
 
-        // let liquidate_swap = Swap{};
-        // let withdraw_swap = Swap{};
+        let liquidate_route : Vec<RouteNode> = Position::get_ekubo_route(amount_to_liquidate.clone().with_scale(0).into_bigint_and_exponent().0.to_str_radix(10), self.debt.name.clone(), self.collateral.name.clone()).await?;
+        let liquidate_limit: u128 = u128::max_value();
 
-        // let liquidate_params = LiquidateParams {
-        //     pool_id : self.pool_id,
-        //     collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
-        //     debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
-        //     user: cainome::cairo_serde::ContractAddress(self.user_address),
-        //     recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
-        //     min_collateral_to_receive : cainome::cairo_serde::U256::try_from((Felt::ZERO,Felt::ZERO)).expect("failed to parse felt zero"),
-        //     full_liquidation : false,
-        //     liquidate_swap,
-        //     withdraw_swap,
-        // };
+        let withdraw_route : Vec<RouteNode> = Position::get_ekubo_route(collateral_retrieved.clone().with_scale(0).into_bigint_and_exponent().0.to_str_radix(10), self.collateral.name.clone(), String::from("usdc")).await?;
+        let withdraw_limit: u128 = u128::max_value();
 
-        // let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
+        let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
 
-        // https://docs.vesu.xyz/dev-guides/singleton#liquidate_position
-        let liquidate_call = Call {
-            to: singleton_contract,
-            selector: *LIQUIDATE_SELECTOR,
-            calldata: vec![
-                self.pool_id,            // pool_id
-                self.collateral.address, // collateral_asset
-                self.debt.address,       // debt_asset
-                self.user_address,       // user
-                Felt::ZERO,              // receive_as_shares
-                Felt::from(4),           // number of elements below (two U256, low/high)
-                Felt::ZERO,              // min_collateral (U256)
+        let liquidate_swap = Swap {
+            route: liquidate_route,
+            token_amount: liquidate_token,
+            limit_amount: liquidate_limit,
+        };
+        let withdraw_swap = Swap {
+            route: withdraw_route,
+            token_amount: withdraw_token,
+            limit_amount: withdraw_limit,
+        };
+
+        let liquidate_params = LiquidateParams {
+            pool_id: self.pool_id,
+            collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
+            debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
+            user: cainome::cairo_serde::ContractAddress(self.user_address),
+            recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
+            min_collateral_to_receive: cainome::cairo_serde::U256::try_from((
                 Felt::ZERO,
-                Felt::from(debt_to_repay.low()), // debt (U256)
-                Felt::from(debt_to_repay.high()),
-            ],
+                Felt::ZERO,
+            ))
+            .expect("failed to parse felt zero"),
+            full_liquidation: false,
+            liquidate_swap,
+            withdraw_swap,
         };
 
-        vec![approve_call, liquidate_call]
+        let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
+
+        Ok(vec![liquidate_call])
     }
 }
 
@@ -270,11 +302,15 @@ mod tests {
         signers::{LocalWallet, SigningKey},
     };
     use url::Url;
+    use std::collections::HashMap;
 
     use rstest::*;
+    use testcontainers::Image;
     use testcontainers::core::wait::WaitFor;
     use testcontainers::runners::AsyncRunner;
     use testcontainers::{ContainerAsync, GenericImage, ImageExt};
+
+    use crate::utils::test_utils::{ImageBuilder, liquidator_dockerfile_path};
 
     const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
     const DEVNET_IMAGE_TAG: &str = "latest";
@@ -295,12 +331,43 @@ mod tests {
             .expect("Failed to start devnet")
     }
 
+    #[derive(Debug, Clone)]
+    struct LiquidatorBot {
+        env_vars: HashMap<String, String>,
+        cmds: Vec<String>,
+    }
+
+    // impl LiquidatorBot {
+    //     fn with_account_address()
+    // }
+
+    // impl Image for LiquidatorBot {
+
+    // }
+
+    #[rstest::fixture]
+    async fn liquidator_bot() -> ContainerAsync<GenericImage> {
+        // 1. Build the local image
+        ImageBuilder::default()
+            .with_build_name("liquidator-bot-e2e")
+            .with_dockerfile(&liquidator_dockerfile_path())
+            .build()
+            .await;
+
+        // 2. Run the container
+        LiquidatorBot::default()
+            .with_container_name("liquidator-bot-container")
+            .start()
+            .await
+            .unwrap()
+    }
+
     #[rstest]
     #[tokio::test]
     async fn test_liquidate_position(
         #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
     ) {
-        let devnet = starknet_devnet_container.await;
+        let _devnet = starknet_devnet_container.await;
 
         let contract_artifact: SierraClass = serde_json::from_reader(
             std::fs::File::open("abis/vesu_liquidate_Liquidate.contract_class.json").unwrap(),
@@ -334,12 +401,22 @@ mod tests {
         let contract_factory = ContractFactory::new(class_hash, account);
         contract_factory
             .deploy_v1(
-                vec![Felt::ZERO, Felt::ZERO],
+                vec![
+                    Felt::from_hex(
+                        "0x00000005dd3D2F4429AF886cD1a3b08289DBcEa99A294197E9eB43b0e0325b4b",
+                    )
+                    .unwrap(),
+                    Felt::ZERO,
+                ],
                 Felt::from_dec_str("0").unwrap(),
                 false,
             )
             .send()
             .await
             .expect("Unable to deploy contract");
+
+        // Make a position liquidable
+
+        // Assert that the bot has liquidated the position
     }
 }

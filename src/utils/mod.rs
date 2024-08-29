@@ -1,6 +1,8 @@
 use bigdecimal::{num_bigint::BigInt, BigDecimal};
 
 pub mod conversions;
+#[cfg(test)]
+pub mod test_utils;
 
 /// Apply a small overhead of 2% to the provided number.
 pub fn apply_overhead(num: BigDecimal) -> BigDecimal {
