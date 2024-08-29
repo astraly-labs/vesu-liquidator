@@ -828,6 +828,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits 0.2.19",
+ "serde",
 ]
 
 [[package]]
@@ -7923,6 +7924,7 @@ dependencies = [
  "anyhow",
  "apibara-core",
  "apibara-sdk",
+ "async-trait",
  "bigdecimal 0.4.5",
  "cainome",
  "clap",
