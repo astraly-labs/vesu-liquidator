@@ -3,6 +3,7 @@ use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use colored::Colorize;
+use serde::{Deserialize, Serialize};
 use starknet::accounts::Call;
 use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
 use starknet::core::utils::get_selector_from_name;
@@ -16,6 +17,7 @@ use tokio::sync::RwLock;
 
 use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
+use crate::storages::Storage;
 use crate::utils::apply_overhead;
 use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::utils::conversions::big_decimal_to_u256;
@@ -30,6 +32,11 @@ pub struct PositionsMap(pub Arc<RwLock<HashMap<u64, Position>>>);
 impl PositionsMap {
     pub fn new() -> Self {
         Self(Arc::new(RwLock::new(HashMap::new())))
+    }
+
+    pub fn from_storage(storage: &dyn Storage) -> Self {
+        let positions = storage.get_positions();
+        Self(Arc::new(RwLock::new(positions)))
     }
 
     pub async fn insert(&self, position: Position) -> Option<Position> {
@@ -51,7 +58,7 @@ impl Default for PositionsMap {
     }
 }
 
-#[derive(Default, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Hash, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Position {
     pub user_address: Felt,
     pub pool_id: Felt,
