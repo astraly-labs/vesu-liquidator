@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Result};
+use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use starknet::{
     accounts::Call,
@@ -128,12 +129,16 @@ impl MonitoringService {
             .fetch_liquidation_factors(&self.config, self.rpc_client.clone())
             .await;
 
+        let debt_to_liquidate = liquidable_amount.clone() * liquidation_factor.clone();
+        let simulated_profit: BigDecimal = liquidable_amount.clone() * (1 - liquidation_factor.clone());
         let liquidation_txs =
-            position.get_liquidation_txs(&self.account ,self.config.singleton_address, self.config.liquidate_address, liquidable_amount.clone());
+            position.get_liquidation_txs(&self.account , self.config.liquidate_address, debt_to_liquidate, simulated_profit.clone()).await?;
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
+        let slippage = BigDecimal::new(BigInt::from(5), 2);
+        let slippage_factor = BigDecimal::from(1) - slippage;
         Ok((
-            liquidable_amount * liquidation_factor - execution_fees,
+            (simulated_profit * slippage_factor) - execution_fees,
             liquidation_txs,
         ))
     }

@@ -5,30 +5,27 @@ use bigdecimal::BigDecimal;
 use cainome::cairo_serde::CairoSerde;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
-use starknet::accounts::{Account, Call, ConnectedAccount};
-use starknet::core::types::{Felt, StarknetError};
 use starknet::accounts::Call;
-use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
-use starknet::core::utils::get_selector_from_name;
+use starknet::core::types::Felt;
+use starknet::core::types::{BlockId, BlockTag, FunctionCall};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::ops::{Mul, Neg};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::bindings::liquidate::{self, Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
+use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
 
-use crate::config::Config;
 use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::apply_overhead;
 use crate::utils::constants::VESU_RESPONSE_DECIMALS;
-use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
-    config::LIQUIDATE_SELECTOR, types::asset::Asset, utils::conversions::apibara_field_as_felt,
+    types::asset::Asset, utils::conversions::apibara_field_as_felt,
 };
 
 use super::account::StarknetAccount;
@@ -37,10 +34,8 @@ use super::account::StarknetAccount;
 /// PositionsMap is a map between position position_key <=> position.
 pub struct PositionsMap(pub Arc<RwLock<HashMap<u64, Position>>>);
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct EkuboApiGetRouteResponse {
-    specified_amount: BigInt,
-    amount: BigInt,
     route: Vec<RouteNode>,
 }
 
@@ -247,15 +242,16 @@ impl Position {
     pub async fn get_liquidation_txs(
         &self,
         account: &StarknetAccount,
-        singleton_contract: Felt,
         liquidate_contract: Felt,
         amount_to_liquidate: BigDecimal,
         collateral_retrieved: BigDecimal
     ) -> Result<Vec<Call>> {
+
+        //putting the amount in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
             amount: I129::cairo_deserialize(
-                &vec![Felt::from(amount_to_liquidate.clone().with_scale(0).into_bigint_and_exponent().0)],
+                &vec![Felt::from(amount_to_liquidate.clone().with_scale(0).neg().into_bigint_and_exponent().0)],
                 0,
             )
             .expect("failed to deserialize amount to liquidiate"),
@@ -270,10 +266,11 @@ impl Position {
             .expect("failed to deserialize amount to liquidiate"),
         };
 
+        //As mentionned before the route is inverted for precision purpose
         let liquidate_route : Vec<RouteNode> = Position::get_ekubo_route(amount_to_liquidate.clone().with_scale(0).into_bigint_and_exponent().0.to_str_radix(10), self.debt.name.clone(), self.collateral.name.clone()).await?;
         let liquidate_limit: u128 = u128::max_value();
 
-        let withdraw_route : Vec<RouteNode> = Position::get_ekubo_route(collateral_retrieved.clone().with_scale(0).into_bigint_and_exponent().0.to_str_radix(10), self.collateral.name.clone(), String::from("usdc")).await?;
+        let withdraw_route : Vec<RouteNode> = Position::get_ekubo_route(collateral_retrieved.clone().with_scale(0).into_bigint_and_exponent().0.to_str_radix(10), self.debt.name.clone(), String::from("usdc")).await?;
         let withdraw_limit: u128 = u128::max_value();
 
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
