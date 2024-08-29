@@ -13,7 +13,7 @@ use tokio::time::interval;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
-    storage::Storage,
+    storages::Storage,
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
@@ -43,14 +43,12 @@ impl MonitoringService {
         latest_oracle_prices: LatestOraclePrices,
         storage: Box<dyn Storage>,
     ) -> MonitoringService {
-        let positions = PositionsMap::from_storage(storage.get_last_positions());
-
         MonitoringService {
             config,
             rpc_client,
             account,
             positions_receiver,
-            positions,
+            positions: PositionsMap::from_storage(storage.as_ref()),
             latest_oracle_prices,
             storage,
         }

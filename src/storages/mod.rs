@@ -32,5 +32,5 @@ pub trait Storage: Send + Sync {
         position: HashMap<u64, position::Position>,
         last_block_indexed: u64,
     ) -> Result<()>;
-    fn get_last_positions(&self) -> HashMap<u64, Position>;
+    fn get_positions(&self) -> HashMap<u64, Position>;
 }

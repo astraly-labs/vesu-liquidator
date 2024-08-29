@@ -17,6 +17,7 @@ use tokio::sync::RwLock;
 
 use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
+use crate::storages::Storage;
 use crate::utils::apply_overhead;
 use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::utils::conversions::big_decimal_to_u256;
@@ -33,8 +34,9 @@ impl PositionsMap {
         Self(Arc::new(RwLock::new(HashMap::new())))
     }
 
-    pub fn from_storage(map_backup: HashMap<u64, Position>) -> Self {
-        Self(Arc::new(RwLock::new(map_backup)))
+    pub fn from_storage(storage: &dyn Storage) -> Self {
+        let positions = storage.get_positions();
+        Self(Arc::new(RwLock::new(positions)))
     }
 
     pub async fn insert(&self, position: Position) -> Option<Position> {

@@ -76,7 +76,7 @@ impl Storage for JsonStorage {
         Ok(())
     }
 
-    fn get_last_positions(&self) -> HashMap<u64, Position> {
+    fn get_positions(&self) -> HashMap<u64, Position> {
         self.data.positions.clone()
     }
 }

@@ -17,7 +17,7 @@ use crate::{
     cli::RunCmd,
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
-    storage::{json::JsonStorage, Storage},
+    storages::{json::JsonStorage, Storage},
     types::{account::StarknetAccount, position::Position},
 };
 
@@ -33,12 +33,12 @@ pub async fn start_all_services(
 ) -> Result<()> {
     let (positions_sender, position_receiver) = mpsc::channel::<(u64, Position)>(1024);
 
-    //TODO: add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
+    // TODO: Add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
     let mut storage = JsonStorage::new("data.json");
-    let data = storage.load().await?;
+    let (last_block_indexed, _) = storage.load().await?;
 
-    //TODO: add force start from staring block in cli
-    let starting_block = cmp::max(run_cmd.starting_block, data.0);
+    // TODO: Add force start from staring block in cli
+    let starting_block = cmp::max(run_cmd.starting_block, last_block_indexed);
 
     tracing::info!("🧩 Starting the indexer service...");
     let indexer_handle = start_indexer_service(
