@@ -12,7 +12,10 @@ use starknet::{
     signers::{LocalWallet, SigningKey},
 };
 
-use crate::cli::{NetworkName, RunCmd};
+use crate::{
+    cli::{NetworkName, RunCmd},
+    utils::constants::VESU_RESPONSE_DECIMALS,
+};
 
 pub struct StarknetAccount(
     pub Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>,
@@ -54,7 +57,10 @@ impl StarknetAccount {
     /// to execute them.
     pub async fn estimate_fees_cost(&self, txs: &[Call]) -> Result<BigDecimal> {
         let estimation = self.0.execute_v1(txs.to_vec()).estimate_fee().await?;
-        Ok(BigDecimal::new(estimation.overall_fee.to_bigint(), 18))
+        Ok(BigDecimal::new(
+            estimation.overall_fee.to_bigint(),
+            VESU_RESPONSE_DECIMALS,
+        ))
     }
 
     /// Executes a set of transactions and returns the transaction hash.

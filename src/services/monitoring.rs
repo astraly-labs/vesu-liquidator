@@ -13,6 +13,7 @@ use tokio::time::interval;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
+    storages::Storage,
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
@@ -27,9 +28,10 @@ pub struct MonitoringService {
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
-    positions_receiver: Receiver<Position>,
+    positions_receiver: Receiver<(u64, Position)>,
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
+    storage: Box<dyn Storage>,
 }
 
 impl MonitoringService {
@@ -37,16 +39,18 @@ impl MonitoringService {
         config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         account: StarknetAccount,
-        positions_receiver: Receiver<Position>,
+        positions_receiver: Receiver<(u64, Position)>,
         latest_oracle_prices: LatestOraclePrices,
+        storage: Box<dyn Storage>,
     ) -> MonitoringService {
         MonitoringService {
             config,
             rpc_client,
             account,
             positions_receiver,
-            positions: PositionsMap::new(),
+            positions: PositionsMap::from_storage(storage.as_ref()),
             latest_oracle_prices,
+            storage,
         }
     }
 
@@ -64,8 +68,9 @@ impl MonitoringService {
                 // Insert the new positions indexed by the IndexerService
                 maybe_position = self.positions_receiver.recv() => {
                     match maybe_position {
-                        Some(new_position) => {
+                        Some((block_number, new_position)) => {
                             self.positions.0.write().await.insert(new_position.key(), new_position);
+                            self.storage.save(self.positions.0.read().await.clone(), block_number).await?;
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));
@@ -119,11 +124,18 @@ impl MonitoringService {
             .liquidable_amount(&self.latest_oracle_prices)
             .await?;
 
+        let liquidation_factor = position
+            .fetch_liquidation_factors(&self.config, self.rpc_client.clone())
+            .await;
+
         let liquidation_txs =
             position.get_liquidation_txs(&self.account ,self.config.singleton_address, self.config.liquidate_address, liquidable_amount.clone());
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
-        Ok((liquidable_amount - execution_fees, liquidation_txs))
+        Ok((
+            liquidable_amount * liquidation_factor - execution_fees,
+            liquidation_txs,
+        ))
     }
 
     /// Waits for a TX to be accepted on-chain.

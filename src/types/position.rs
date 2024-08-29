@@ -7,7 +7,11 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use starknet::accounts::{Account, Call, ConnectedAccount};
 use starknet::core::types::{Felt, StarknetError};
+use starknet::accounts::Call;
+use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
 use starknet::core::utils::get_selector_from_name;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::{JsonRpcClient, Provider};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -17,8 +21,11 @@ use tokio::sync::RwLock;
 use crate::bindings::liquidate::{self, Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
 
 use crate::config::Config;
+use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
+use crate::storages::Storage;
 use crate::utils::apply_overhead;
+use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::utils::conversions::big_decimal_to_u256;
 use crate::{
     config::LIQUIDATE_SELECTOR, types::asset::Asset, utils::conversions::apibara_field_as_felt,
@@ -42,6 +49,11 @@ impl PositionsMap {
         Self(Arc::new(RwLock::new(HashMap::new())))
     }
 
+    pub fn from_storage(storage: &dyn Storage) -> Self {
+        let positions = storage.get_positions();
+        Self(Arc::new(RwLock::new(positions)))
+    }
+
     pub async fn insert(&self, position: Position) -> Option<Position> {
         self.0.write().await.insert(position.key(), position)
     }
@@ -61,7 +73,7 @@ impl Default for PositionsMap {
     }
 }
 
-#[derive(Default, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Hash, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Position {
     pub user_address: Felt,
     pub pool_id: Felt,
@@ -175,6 +187,28 @@ impl Position {
                 "NOT liquidable.".red()
             }
         );
+    }
+
+    // TODO : put that in cache in a map with poolid/collateral/debt as key
+    // Fetch liquidation factor from extension contract
+    pub async fn fetch_liquidation_factors(
+        &self,
+        config: &Config,
+        rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+    ) -> BigDecimal {
+        let calldata = vec![self.pool_id, self.collateral.address, self.debt.address];
+
+        let liquidation_config_request = &FunctionCall {
+            contract_address: config.extension_address,
+            entry_point_selector: *LIQUIDATION_CONFIG_SELECTOR,
+            calldata,
+        };
+
+        let ltv_config = rpc_client
+            .call(liquidation_config_request, BlockId::Tag(BlockTag::Pending))
+            .await
+            .expect("failed to retrieve");
+        BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
     }
 
     /// Returns the position as a calldata for the LTV config RPC call.

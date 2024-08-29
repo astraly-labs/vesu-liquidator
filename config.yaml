@@ -16,25 +16,25 @@ assets:
     mainnet_address: "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
     sepolia_address: ""
 
-  - name: "wrapped bitcoin"
+  - name: "wrapped-bitcoin"
     ticker: "WBTC"
     decimals: 8
     mainnet_address: "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac"
     sepolia_address: ""
 
-  - name: "circle usd"
+  - name: "usd-coin"
     ticker: "USDC"
     decimals: 6
     mainnet_address: "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"
     sepolia_address: ""
 
-  - name: "tether usd"
+  - name: "tether"
     ticker: "USDT"
     decimals: 6
     mainnet_address: "0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8"
     sepolia_address: ""
 
-  - name: "wrapped lido staked ether"
+  - name: "wrapped-steth"
     ticker: "WSTETH"
     decimals: 18
     mainnet_address: "0x42b8f0484674ca266ac5d08e4ac6a3fe65bd3129795def2dca5c34ecc5f96d2"

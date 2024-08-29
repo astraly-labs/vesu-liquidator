@@ -3,7 +3,7 @@ pub mod monitoring;
 pub mod oracle;
 
 use oracle::{LatestOraclePrices, OracleService};
-use std::{sync::Arc, time::Duration};
+use std::{cmp, sync::Arc, time::Duration};
 use url::Url;
 
 use anyhow::{Context, Result};
@@ -17,6 +17,7 @@ use crate::{
     cli::RunCmd,
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
+    storages::{json::JsonStorage, Storage},
     types::{account::StarknetAccount, position::Position},
 };
 
@@ -30,14 +31,21 @@ pub async fn start_all_services(
     account: StarknetAccount,
     run_cmd: RunCmd,
 ) -> Result<()> {
-    let (positions_sender, position_receiver) = mpsc::channel::<Position>(1024);
+    let (positions_sender, position_receiver) = mpsc::channel::<(u64, Position)>(1024);
+
+    // TODO: Add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
+    let mut storage = JsonStorage::new("data.json");
+    let (last_block_indexed, _) = storage.load().await?;
+
+    // TODO: Add force start from staring block in cli
+    let starting_block = cmp::max(run_cmd.starting_block, last_block_indexed);
 
     tracing::info!("🧩 Starting the indexer service...");
     let indexer_handle = start_indexer_service(
         config.clone(),
         rpc_client.clone(),
         positions_sender,
-        run_cmd.starting_block,
+        starting_block,
         run_cmd.apibara_api_key.unwrap(),
     );
 
@@ -59,6 +67,7 @@ pub async fn start_all_services(
         account,
         position_receiver,
         latest_oracle_prices,
+        Box::new(storage),
     );
 
     // Wait for tasks to complete, and handle any errors
@@ -76,7 +85,7 @@ pub async fn start_all_services(
 fn start_indexer_service(
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-    positions_sender: Sender<Position>,
+    positions_sender: Sender<(u64, Position)>,
     starting_block: u64,
     apibara_api_key: String,
 ) -> JoinHandle<Result<()>> {
@@ -118,8 +127,9 @@ fn start_monitoring_service(
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
-    position_receiver: Receiver<Position>,
+    position_receiver: Receiver<(u64, Position)>,
     latest_oracle_prices: LatestOraclePrices,
+    storage: Box<dyn Storage>,
 ) -> JoinHandle<Result<()>> {
     let monitoring_service = MonitoringService::new(
         config,
@@ -127,6 +137,7 @@ fn start_monitoring_service(
         account,
         position_receiver,
         latest_oracle_prices,
+        storage,
     );
 
     tokio::spawn(async move {
