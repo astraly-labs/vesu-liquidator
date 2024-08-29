@@ -13,7 +13,7 @@ use tokio::time::interval;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
-    storage::storage_wrapper::Storage,
+    storage::Storage,
     types::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
@@ -43,7 +43,7 @@ impl MonitoringService {
         latest_oracle_prices: LatestOraclePrices,
         storage: Box<dyn Storage>,
     ) -> MonitoringService {
-        let positions = PositionsMap::from_storage(storage.get_last_saved_positions_map());
+        let positions = PositionsMap::from_storage(storage.get_last_positions());
 
         MonitoringService {
             config,
@@ -72,7 +72,7 @@ impl MonitoringService {
                     match maybe_position {
                         Some((block_number, new_position)) => {
                             self.positions.0.write().await.insert(new_position.key(), new_position);
-                            self.storage.save_state(self.positions.0.read().await.clone(), block_number).await?;
+                            self.storage.save(self.positions.0.read().await.clone(), block_number).await?;
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));

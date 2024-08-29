@@ -17,7 +17,7 @@ use crate::{
     cli::RunCmd,
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
-    storage::{json::JsonStorage, storage_wrapper::Storage},
+    storage::{json::JsonStorage, Storage},
     types::{account::StarknetAccount, position::Position},
 };
 
@@ -35,7 +35,7 @@ pub async fn start_all_services(
 
     //TODO: add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
     let mut storage = JsonStorage::new("data.json");
-    let data = storage.load_state()?;
+    let data = storage.load().await?;
 
     //TODO: add force start from staring block in cli
     let starting_block = cmp::max(run_cmd.starting_block, data.0);

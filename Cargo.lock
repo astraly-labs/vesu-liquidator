@@ -3353,6 +3353,7 @@ dependencies = [
  "anyhow",
  "apibara-core",
  "apibara-sdk",
+ "async-trait",
  "bigdecimal 0.4.5",
  "clap",
  "colored",
