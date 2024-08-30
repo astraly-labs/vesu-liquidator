@@ -261,7 +261,7 @@ impl Position {
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
             amount: I129::cairo_deserialize(
-                &vec![Felt::from(
+                &[Felt::from(
                     amount_to_liquidate
                         .clone()
                         .with_scale(0)
@@ -276,7 +276,7 @@ impl Position {
         let withdraw_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.collateral.address),
             amount: I129::cairo_deserialize(
-                &vec![Felt::from(
+                &[Felt::from(
                     profit_estimated
                         .clone()
                         .with_scale(0)
@@ -299,7 +299,7 @@ impl Position {
             self.collateral.name.clone(),
         )
         .await?;
-        let liquidate_limit: u128 = u128::max_value();
+        let liquidate_limit: u128 = u128::MAX;
 
         let withdraw_route: Vec<RouteNode> = Position::get_ekubo_route(
             profit_estimated
@@ -312,7 +312,7 @@ impl Position {
             String::from("usdc"),
         )
         .await?;
-        let withdraw_limit: u128 = u128::max_value();
+        let withdraw_limit: u128 = u128::MAX;
 
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
 
