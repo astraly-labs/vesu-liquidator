@@ -1,9 +1,10 @@
 use bigdecimal::BigDecimal;
+use serde::{Deserialize, Serialize};
 use starknet::core::types::Felt;
 
 use crate::config::Config;
 
-#[derive(Default, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Hash, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Asset {
     pub name: String,
     pub address: Felt,

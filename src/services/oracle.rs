@@ -66,7 +66,8 @@ impl OracleService {
     }
 }
 
-#[derive(Default, Clone,Debug)]
+/// Map contaning the price in dollars for a list of monitored assets.
+#[derive(Default, Clone)]
 pub struct LatestOraclePrices(pub Arc<Mutex<HashMap<String, BigDecimal>>>);
 
 impl LatestOraclePrices {

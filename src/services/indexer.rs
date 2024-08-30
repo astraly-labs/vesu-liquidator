@@ -21,13 +21,13 @@ use crate::cli::NetworkName;
 use crate::config::{
     Config, MODIFY_POSITION_EVENT, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
 };
+use crate::utils::constants::VESU_RESPONSE_DECIMALS;
 use crate::{
     types::position::Position,
     utils::conversions::{apibara_field_as_felt, felt_as_apibara_field},
 };
 
 const INDEXING_STREAM_CHUNK_SIZE: usize = 1024;
-const ETHEREUM_DECIMALS: i64 = 18;
 
 pub struct IndexerService {
     config: Config,
@@ -35,7 +35,7 @@ pub struct IndexerService {
     uri: Uri,
     apibara_api_key: String,
     stream_config: Configuration<Filter>,
-    positions_sender: Sender<Position>,
+    positions_sender: Sender<(u64, Position)>,
     seen_positions: HashSet<u64>,
 }
 
@@ -44,7 +44,7 @@ impl IndexerService {
         config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         apibara_api_key: String,
-        positions_sender: Sender<Position>,
+        positions_sender: Sender<(u64, Position)>,
         from_block: u64,
     ) -> IndexerService {
         let uri = match config.network {
@@ -113,7 +113,11 @@ impl IndexerService {
                         for block in batch {
                             for event in block.events {
                                 if let Some(event) = event.event {
-                                    self.create_position_from_event(event).await?;
+                                    let block_number = match block.header.clone() {
+                                        Some(hdr) => hdr.block_number,
+                                        None => 0,
+                                    };
+                                    self.create_position_from_event(block_number, event).await?;
                                 }
                             }
                         }
@@ -142,7 +146,7 @@ impl IndexerService {
     }
 
     /// Index the provided event & creates a new position.
-    async fn create_position_from_event(&mut self, event: Event) -> Result<()> {
+    async fn create_position_from_event(&mut self, block_number: u64, event: Event) -> Result<()> {
         if event.from_address.is_none() {
             return Ok(());
         }
@@ -163,7 +167,7 @@ impl IndexerService {
             if self.seen_positions.insert(position_key) {
                 tracing::info!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
             }
-            match self.positions_sender.try_send(new_position) {
+            match self.positions_sender.try_send((block_number, new_position)) {
                 Ok(_) => {}
                 Err(e) => panic!("Could not send position: {}", e),
             }
@@ -210,8 +214,7 @@ impl IndexerService {
             .call(ltv_config_request, BlockId::Tag(BlockTag::Pending))
             .await?;
 
-        // Decimals is always 18 for the ltv_config response
-        position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), ETHEREUM_DECIMALS);
+        position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS);
         Ok(position)
     }
 
