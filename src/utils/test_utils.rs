@@ -44,7 +44,6 @@ impl ImageBuilder {
     }
 }
 
-
 // Returns the path of the Liquidator bot dockerfile.
 pub fn liquidator_dockerfile_path() -> PathBuf {
     std::env::current_dir()

@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use starknet::{
-    accounts::{Account,ConnectedAccount, Call, ExecutionEncoding, SingleOwnerAccount},
+    accounts::{Account, Call, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount},
     core::{
         chain_id,
         types::{BlockId, BlockTag, Felt},

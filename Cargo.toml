@@ -13,10 +13,10 @@ keywords = ["vesu", "liquidator", "bot", "starknet"]
 anyhow = "1.0.86"
 async-trait = "0.1.81"
 bigdecimal = { version = "0.4.5", features = ["serde"] }
-clap = { version = "4.5.16", features = ["derive"] }
 cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.3.1", features = [
-    "abigen-rs",
+  "abigen-rs",
 ] }
+clap = { version = "4.5.16", features = ["derive"] }
 colored = "2.1.0"
 dotenvy = "0.15.7"
 futures-util = "0.3.30"
@@ -37,11 +37,11 @@ apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 starknet-devnet = "0.1.2"
 
 # Test dependencies
-rstest = "0.18.2"
 httpmock = { version = "0.7.0" }
+rstest = "0.18.2"
 testcontainers = { version = "0.21.1" }
 
 [build-dependencies]
 cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.3.1", features = [
-    "abigen-rs",
+  "abigen-rs",
 ] }

@@ -1,10 +1,10 @@
+pub mod bindings;
 pub mod cli;
 pub mod config;
 pub mod services;
 pub mod storages;
 pub mod types;
 pub mod utils;
-pub mod bindings;
 
 use std::sync::Arc;
 

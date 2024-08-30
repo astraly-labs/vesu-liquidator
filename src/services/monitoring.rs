@@ -130,9 +130,16 @@ impl MonitoringService {
             .await;
 
         let debt_to_liquidate = liquidable_amount.clone() * liquidation_factor.clone();
-        let simulated_profit: BigDecimal = liquidable_amount.clone() * (1 - liquidation_factor.clone());
-        let liquidation_txs =
-            position.get_liquidation_txs(&self.account , self.config.liquidate_address, debt_to_liquidate, simulated_profit.clone()).await?;
+        let simulated_profit: BigDecimal =
+            liquidable_amount.clone() * (1 - liquidation_factor.clone());
+        let liquidation_txs = position
+            .get_liquidation_txs(
+                &self.account,
+                self.config.liquidate_address,
+                debt_to_liquidate,
+                simulated_profit.clone(),
+            )
+            .await?;
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
 
         let slippage = BigDecimal::new(BigInt::from(5), 2);
