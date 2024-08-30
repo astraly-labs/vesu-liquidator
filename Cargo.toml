@@ -36,7 +36,6 @@ apibara-core = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 
 # Test dependencies
-httpmock = { version = "0.7.0" }
 rstest = "0.18.2"
 testcontainers = { version = "0.21.1" }
 
