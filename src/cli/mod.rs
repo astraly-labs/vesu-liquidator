@@ -71,6 +71,11 @@ impl RunCmd {
                     self.starting_block = FIRST_MAINNET_BLOCK;
                 }
             }
+            NetworkName::Devnet => {
+                if self.starting_block <= FIRST_MAINNET_BLOCK {
+                    self.starting_block = FIRST_MAINNET_BLOCK;
+                }
+            }
             NetworkName::Sepolia => {
                 if self.starting_block <= FIRST_SEPOLIA_BLOCK {
                     self.starting_block = FIRST_SEPOLIA_BLOCK;
@@ -90,4 +95,7 @@ pub enum NetworkName {
     #[strum(serialize = "Sepolia")]
     #[value(alias("sepolia"))]
     Sepolia,
+    #[strum(serialize = "Devnet")]
+    #[value(alias("devnet"))]
+    Devnet,
 }

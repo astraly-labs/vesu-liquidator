@@ -48,6 +48,7 @@ impl Config {
         let network_config = match network {
             NetworkName::Mainnet => &raw_config.vesu.mainnet,
             NetworkName::Sepolia => &raw_config.vesu.sepolia,
+            NetworkName::Devnet => &raw_config.vesu.mainnet,
         };
 
         let singleton_address = Felt::from_hex(&network_config.singleton_address)?;
@@ -61,6 +62,7 @@ impl Config {
                 let address = match network {
                     NetworkName::Mainnet => Felt::from_hex(&asset.mainnet_address),
                     NetworkName::Sepolia => Felt::from_hex(&asset.sepolia_address),
+                    NetworkName::Devnet => Felt::from_hex(&asset.mainnet_address),
                 };
                 address.ok().map(|addr| (addr, asset.clone()))
             })

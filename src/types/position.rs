@@ -398,6 +398,10 @@ mod tests {
     const DEVNET_IMAGE_TAG: &str = "latest";
     const DEVNET_PORT: u16 = 5050;
 
+    const APIBARA_IMAGE: &str = "quay.io/apibara/starknet";
+    const APIBARA_IMAGE_TAG: &str = "latest";
+    const APIBARA_PORT: u16 = 7171;
+
     #[rstest::fixture]
     async fn starknet_devnet_container() -> ContainerAsync<GenericImage> {
         GenericImage::new(DEVNET_IMAGE, DEVNET_IMAGE_TAG)
@@ -408,6 +412,21 @@ mod tests {
                 "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
                 "--seed=1",
             ])
+            .start()
+            .await
+            .expect("Failed to start devnet")
+    }
+
+    #[rstest::fixture]
+    async fn apibara_container(
+        #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
+    ) -> ContainerAsync<GenericImage> {
+        let _devnet = starknet_devnet_container.await;
+        GenericImage::new(APIBARA_IMAGE, APIBARA_IMAGE_TAG)
+            .with_wait_for(WaitFor::message_on_stdout("starting server"))
+            .with_exposed_port(APIBARA_PORT.into())
+            .with_mapped_port(APIBARA_PORT, APIBARA_PORT.into())
+            .with_cmd(vec!["start", "--rpc=http://host.docker.internal:5050"])
             .start()
             .await
             .expect("Failed to start devnet")
@@ -478,7 +497,10 @@ mod tests {
     }
 
     #[rstest::fixture]
-    async fn liquidator_bot_container() -> ContainerAsync<LiquidatorBot> {
+    async fn liquidator_bot_container(
+        #[future] apibara_container: ContainerAsync<GenericImage>,
+    ) -> ContainerAsync<LiquidatorBot> {
+        let _apibara = apibara_container.await;
         // 1. Build the local image
         println!(
             "Building liquidator bot image..., {:#?}",
@@ -505,7 +527,7 @@ mod tests {
         // 3. Run the container
         LiquidatorBot::default()
             .with_env_vars(env_vars)
-            .with_onchain_network("mainnet")
+            .with_onchain_network("devnet")
             .with_rpc_url("127.0.0.1:5050")
             .with_starting_block("600000")
             .with_pragma_base_url("https://api.dev.pragma.build")
@@ -522,10 +544,8 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn test_liquidate_position(
-        #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
         #[future] liquidator_bot_container: ContainerAsync<LiquidatorBot>,
     ) {
-        let _devnet = starknet_devnet_container.await;
         let _bot = liquidator_bot_container.await;
 
         let devnet_url = Url::parse("http://127.0.0.1:5050").unwrap();
@@ -620,6 +640,11 @@ mod tests {
             .await
             .unwrap();
 
+        // retrieved position should be
+        // collateral => ETH : "0.319860064647672274",
+        // collateral => USDC : "300.484447",
+        // lltv => 0.68 (debt can't be > to 68% of collateral value)
+
         // Make a position liquidatable
         let new_eth_usd_price = 100000000000; // 1000 USD
         set_pragma_price(
@@ -632,7 +657,7 @@ mod tests {
         // Assert that the bot has liquidated the position
 
         //TODO : Check Key
-        assert!(logs_contain("[🔭 Monitoring] Liquidatable position found"));
+        assert!(logs_contain("[🔭 Monitoring] Liquidatable position found "));
         //TODO : Check profit
         assert!(logs_contain(
             "[🔭 Monitoring] Trying to liquidiate position for"
