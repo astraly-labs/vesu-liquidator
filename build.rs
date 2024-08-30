@@ -26,14 +26,14 @@ fn main() {
 
         abigen
             .generate()
-            .expect(format!("Fail to generate bindings {}", contract_files).as_str())
+            .unwrap_or_else(|_| panic!("Fail to generate bindings {}", contract_files))
             .write_to_file(
-                &strk_bind_base
+                strk_bind_base
                     .join(format!("{bind_out}.rs"))
                     .to_str()
                     .expect("valid utf8 path"),
             )
-            .expect(format!("Fail to write bindings to file in {:?}", strk_bind_base).as_str());
+            .unwrap_or_else(|_| panic!("Fail to write bindings to file in {:?}", strk_bind_base));
 
         file.write_all(format!("pub mod {};", bind_out).as_bytes())
             .expect("failed to write into mod.rs");
