@@ -26,7 +26,7 @@ jobs:
       - name: Build the project
         run: |
           cargo build --release
-      
+
       - name: Format and clippy
         run: |
           cargo fmt -- --check
@@ -35,7 +35,7 @@ jobs:
 
       - name: Check for unused dependencies
         uses: bnjbvr/cargo-machete@main
-      
+
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
