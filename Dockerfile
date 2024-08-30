@@ -1,7 +1,12 @@
 # ====== Build stage ======
 FROM rust:1.80 AS builder
 
-COPY . .
+WORKDIR /app
+
+# Copy only necessary files
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY config.yaml .
 
 RUN apt-get update && \
     apt-get install -y pkg-config protobuf-compiler libprotobuf-dev libssl-dev
@@ -17,8 +22,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /target/release/vesu-liquidator /usr/local/bin/vesu-liquidator
-COPY --from=builder /config.yaml .
+COPY --from=builder /app/target/release/vesu-liquidator /usr/local/bin/vesu-liquidator
+COPY --from=builder /app/config.yaml .
 
 ENTRYPOINT ["tini", "--", "vesu-liquidator"]
 CMD ["--help"]
