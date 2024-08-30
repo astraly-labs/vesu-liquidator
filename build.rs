@@ -35,6 +35,8 @@ fn main() {
             )
             .unwrap_or_else(|_| panic!("Fail to write bindings to file in {:?}", strk_bind_base));
 
+        file.write_all(b"#![allow(clippy::all, unused_assignments, unreachable_patterns)]\n")
+            .expect("failed to write into mod.rs");
         file.write_all(format!("pub mod {};", bind_out).as_bytes())
             .expect("failed to write into mod.rs");
     }
