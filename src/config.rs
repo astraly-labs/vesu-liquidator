@@ -26,6 +26,7 @@ pub struct Config {
     pub network: NetworkName,
     pub singleton_address: Felt,
     pub extension_address: Felt,
+    pub liquidate_address: Felt,
     pub assets: Vec<Asset>,
     pub asset_map: HashMap<Felt, Asset>,
 }
@@ -51,6 +52,7 @@ impl Config {
 
         let singleton_address = Felt::from_hex(&network_config.singleton_address)?;
         let extension_address = Felt::from_hex(&network_config.extension_address)?;
+        let liquidate_address = Felt::from_hex(&network_config.liquidate_address)?;
 
         let assets = raw_config.assets;
         let asset_map = assets
@@ -68,6 +70,7 @@ impl Config {
             network,
             singleton_address,
             extension_address,
+            liquidate_address,
             assets,
             asset_map,
         };
@@ -104,6 +107,7 @@ pub struct VesuConfig {
 pub struct NetworkConfig {
     pub singleton_address: String,
     pub extension_address: String,
+    pub liquidate_address: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
