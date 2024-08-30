@@ -32,12 +32,11 @@ impl ImageBuilder {
                 "--force-rm",
                 "--tag",
                 &self.build_name,
-                "..",
+                ".",
             ])
             .output()
             .await
             .unwrap();
-        println!("{}", String::from_utf8(output.stdout).unwrap());
 
         if !output.status.success() {
             tracing::error!("{}", String::from_utf8(output.stderr).unwrap());
@@ -48,7 +47,5 @@ impl ImageBuilder {
 
 // Returns the path of the Liquidator bot dockerfile.
 pub fn liquidator_dockerfile_path() -> PathBuf {
-    std::env::current_dir()
-        .unwrap()
-        .join("Dockerfile")
+    std::env::current_dir().unwrap().join("Dockerfile")
 }

@@ -43,3 +43,6 @@ testcontainers = { version = "0.21.1" }
 cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.3.1", features = [
   "abigen-rs",
 ] }
+
+[dev-dependencies]
+tracing-test = "0.2.5"
