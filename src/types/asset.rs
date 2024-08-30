@@ -32,3 +32,34 @@ impl Asset {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use bigdecimal::BigDecimal;
+    use starknet::core::types::Felt;
+
+    use crate::{cli::NetworkName, config::Config};
+
+    use super::Asset;
+
+    #[test]
+    fn test_asset_from_address() {
+        let config = Config::new(NetworkName::Mainnet, &PathBuf::from("./config.yaml")).unwrap();
+        let asset = Asset::from_address(
+            &config,
+            Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(asset.name, "ETH");
+        assert_eq!(
+            asset.address,
+            Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+                .unwrap()
+        );
+        assert_eq!(asset.amount, BigDecimal::from(0));
+        assert_eq!(asset.decimals, 18);
+    }
+}
