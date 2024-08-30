@@ -34,7 +34,6 @@ url = "2.5.2"
 
 apibara-core = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
-starknet-devnet = "0.1.2"
 
 # Test dependencies
 httpmock = { version = "0.7.0" }
