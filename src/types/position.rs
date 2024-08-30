@@ -145,9 +145,14 @@ impl Position {
             / (collateral_factor - maximum_health_factor);
 
         let liquidation_amount_in_usd = apply_overhead(liquidation_amount_in_usd);
-        let liquidatable_amount_in_debt_asset = (liquidation_amount_in_usd.clone() / debt_dollar_price).round(self.debt.decimals); 
-        let liquidatable_amount_in_collateral_asset = (liquidation_amount_in_usd / collateral_dollar_price).round(self.collateral.decimals); 
-        Ok((liquidatable_amount_in_debt_asset, liquidatable_amount_in_collateral_asset))
+        let liquidatable_amount_in_debt_asset =
+            (liquidation_amount_in_usd.clone() / debt_dollar_price).round(self.debt.decimals);
+        let liquidatable_amount_in_collateral_asset =
+            (liquidation_amount_in_usd / collateral_dollar_price).round(self.collateral.decimals);
+        Ok((
+            liquidatable_amount_in_debt_asset,
+            liquidatable_amount_in_collateral_asset,
+        ))
     }
 
     /// Check if a position is closed.
@@ -249,7 +254,7 @@ impl Position {
         account: &StarknetAccount,
         liquidate_contract: Felt,
         amount_to_liquidate: BigDecimal,
-        minimum_collateral_to_retrieve :BigDecimal,
+        minimum_collateral_to_retrieve: BigDecimal,
         profit_estimated: BigDecimal,
     ) -> Result<Vec<Call>> {
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
@@ -322,7 +327,13 @@ impl Position {
             limit_amount: withdraw_limit,
         };
 
-        let min_col_to_retrieve: [u8; 32] = minimum_collateral_to_retrieve.as_bigint_and_exponent().0.to_bytes_be().1.try_into().expect("failed to parse min col to retrieve");
+        let min_col_to_retrieve: [u8; 32] = minimum_collateral_to_retrieve
+            .as_bigint_and_exponent()
+            .0
+            .to_bytes_be()
+            .1
+            .try_into()
+            .expect("failed to parse min col to retrieve");
 
         let liquidate_params = LiquidateParams {
             pool_id: self.pool_id,
@@ -330,7 +341,9 @@ impl Position {
             debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
             user: cainome::cairo_serde::ContractAddress(self.user_address),
             recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
-            min_collateral_to_receive: cainome::cairo_serde::U256::from_bytes_be(&min_col_to_retrieve),
+            min_collateral_to_receive: cainome::cairo_serde::U256::from_bytes_be(
+                &min_col_to_retrieve,
+            ),
             full_liquidation: false,
             liquidate_swap,
             withdraw_swap,
