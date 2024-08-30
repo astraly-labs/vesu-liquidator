@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use starknet::core::types::Felt;
 use starknet::core::utils::get_selector_from_name;
 
-use crate::bindings::liquidate;
 use crate::cli::{NetworkName, RunCmd};
 
 // Contract selectors

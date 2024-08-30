@@ -13,7 +13,7 @@ use starknet::providers::{JsonRpcClient, Provider};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::ops::{Mul, Neg};
+use std::ops::Neg;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -236,8 +236,7 @@ impl Position {
         );
         let http_client = reqwest::Client::new();
         let response = http_client.get(ekubo_api_endpoint).send().await?;
-        let response_text = response.text().await?;
-        let ekubo_response: EkuboApiGetRouteResponse = serde_json::from_str(&response_text)?;
+        let ekubo_response: EkuboApiGetRouteResponse = response.json().await?;
         Ok(ekubo_response.route)
     }
 
@@ -250,7 +249,7 @@ impl Position {
         amount_to_liquidate: BigDecimal,
         collateral_retrieved: BigDecimal,
     ) -> Result<Vec<Call>> {
-        //putting the amount in negative because contract use a inverted route to ensure that we get the exact amount of debt token
+        // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
             amount: I129::cairo_deserialize(
@@ -263,8 +262,7 @@ impl Position {
                         .0,
                 )],
                 0,
-            )
-            .expect("failed to deserialize amount to liquidiate"),
+            )?,
         };
 
         let withdraw_token = TokenAmount {
@@ -278,11 +276,10 @@ impl Position {
                         .0,
                 )],
                 0,
-            )
-            .expect("failed to deserialize amount to liquidiate"),
+            )?,
         };
 
-        //As mentionned before the route is inverted for precision purpose
+        // As mentionned before the route is inverted for precision purpose
         let liquidate_route: Vec<RouteNode> = Position::get_ekubo_route(
             amount_to_liquidate
                 .clone()
@@ -331,8 +328,7 @@ impl Position {
             min_collateral_to_receive: cainome::cairo_serde::U256::try_from((
                 Felt::ZERO,
                 Felt::ZERO,
-            ))
-            .expect("failed to parse felt zero"),
+            ))?,
             full_liquidation: false,
             liquidate_swap,
             withdraw_swap,
@@ -364,20 +360,19 @@ mod tests {
             chain_id,
             types::{contract::SierraClass, BlockId, BlockTag, Felt},
         },
-        macros::felt,
         providers::{jsonrpc::HttpTransport, JsonRpcClient},
         signers::{LocalWallet, SigningKey},
     };
-    use std::collections::HashMap;
+    // use std::collections::HashMap;
     use url::Url;
 
     use rstest::*;
     use testcontainers::core::wait::WaitFor;
     use testcontainers::runners::AsyncRunner;
-    use testcontainers::Image;
+    // use testcontainers::Image;
     use testcontainers::{ContainerAsync, GenericImage, ImageExt};
 
-    use crate::utils::test_utils::{liquidator_dockerfile_path, ImageBuilder};
+    // use crate::utils::test_utils::{liquidator_dockerfile_path, ImageBuilder};
 
     const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
     const DEVNET_IMAGE_TAG: &str = "latest";
@@ -398,11 +393,11 @@ mod tests {
             .expect("Failed to start devnet")
     }
 
-    #[derive(Debug, Clone)]
-    struct LiquidatorBot {
-        env_vars: HashMap<String, String>,
-        cmds: Vec<String>,
-    }
+    // #[derive(Debug, Clone)]
+    // struct LiquidatorBot {
+    //     env_vars: HashMap<String, String>,
+    //     cmds: Vec<String>,
+    // }
 
     // impl LiquidatorBot {
     //     fn with_account_address()
@@ -412,22 +407,22 @@ mod tests {
 
     // }
 
-    #[rstest::fixture]
-    async fn liquidator_bot() -> ContainerAsync<GenericImage> {
-        // 1. Build the local image
-        ImageBuilder::default()
-            .with_build_name("liquidator-bot-e2e")
-            .with_dockerfile(&liquidator_dockerfile_path())
-            .build()
-            .await;
+    // #[rstest::fixture]
+    // async fn liquidator_bot() -> ContainerAsync<GenericImage> {
+    //     // 1. Build the local image
+    //     ImageBuilder::default()
+    //         .with_build_name("liquidator-bot-e2e")
+    //         .with_dockerfile(&liquidator_dockerfile_path())
+    //         .build()
+    //         .await;
 
-        // 2. Run the container
-        LiquidatorBot::default()
-            .with_container_name("liquidator-bot-container")
-            .start()
-            .await
-            .unwrap()
-    }
+    //     // 2. Run the container
+    //     LiquidatorBot::default()
+    //         .with_container_name("liquidator-bot-container")
+    //         .start()
+    //         .await
+    //         .unwrap()
+    // }
 
     #[rstest]
     #[tokio::test]
