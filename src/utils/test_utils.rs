@@ -22,6 +22,7 @@ impl ImageBuilder {
     }
 
     pub async fn build(&self) {
+        println!("Building image for {}", &self.build_name);
         let output = Command::new(DOCKER_BINARY)
             .args([
                 "buildx",
@@ -35,7 +36,8 @@ impl ImageBuilder {
             ])
             .output()
             .await
-            .expect("Failed to execute Docker build command");
+            .unwrap();
+        println!("{}", String::from_utf8(output.stdout).unwrap());
 
         if !output.status.success() {
             tracing::error!("{}", String::from_utf8(output.stderr).unwrap());
@@ -48,7 +50,5 @@ impl ImageBuilder {
 pub fn liquidator_dockerfile_path() -> PathBuf {
     std::env::current_dir()
         .unwrap()
-        .join("..")
-        .join("..")
         .join("Dockerfile")
 }

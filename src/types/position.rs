@@ -344,7 +344,6 @@ impl Position {
             min_collateral_to_receive: cainome::cairo_serde::U256::from_bytes_be(
                 &min_col_to_retrieve,
             ),
-            full_liquidation: false,
             liquidate_swap,
             withdraw_swap,
         };
@@ -368,6 +367,8 @@ impl fmt::Display for Position {
 #[cfg(test)]
 mod tests {
 
+    use std::{collections::HashMap, env};
+
     use starknet::{
         accounts::{ExecutionEncoding, SingleOwnerAccount},
         contract::ContractFactory,
@@ -378,16 +379,15 @@ mod tests {
         providers::{jsonrpc::HttpTransport, JsonRpcClient},
         signers::{LocalWallet, SigningKey},
     };
-    // use std::collections::HashMap;
     use url::Url;
 
     use rstest::*;
     use testcontainers::core::wait::WaitFor;
     use testcontainers::runners::AsyncRunner;
-    // use testcontainers::Image;
+    use testcontainers::Image;
     use testcontainers::{ContainerAsync, GenericImage, ImageExt};
 
-    // use crate::utils::test_utils::{liquidator_dockerfile_path, ImageBuilder};
+    use crate::utils::test_utils::{liquidator_dockerfile_path, ImageBuilder};
 
     const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
     const DEVNET_IMAGE_TAG: &str = "latest";
@@ -408,43 +408,116 @@ mod tests {
             .expect("Failed to start devnet")
     }
 
-    // #[derive(Debug, Clone)]
-    // struct LiquidatorBot {
-    //     env_vars: HashMap<String, String>,
-    //     cmds: Vec<String>,
-    // }
+    #[derive(Debug, Clone, Default)]
+    struct LiquidatorBot {
+        env_vars: HashMap<String, String>,
+        cmds: Vec<String>,
+    }
 
-    // impl LiquidatorBot {
-    //     fn with_account_address()
-    // }
+    impl LiquidatorBot {
+        fn with_env_vars(mut self, vars: HashMap<String, String>) -> Self {
+            self.env_vars = vars;
+            self
+        }
+        fn with_onchain_network(mut self, network: &str) -> Self {
+            self.cmds.push(format!("--network={network}"));
+            self
+        }
+        fn with_rpc_url(mut self, rpc_url: &str) -> Self {
+            self.cmds.push(format!("--rpc_url={rpc_url}"));
+            self
+        }
+        fn with_starting_block(mut self, starting_block: &str) -> Self {
+            self.cmds.push(format!("--starting_block={starting_block}"));
+            self
+        }
+        fn with_pragma_base_url(mut self, pragma_base_url: &str) -> Self {
+            self.cmds
+                .push(format!("--pragma-base-api-url={pragma_base_url}"));
+            self
+        }
+        fn with_account(mut self, address: &str, private_key: &str) -> Self {
+            self.cmds.push(format!("--account-address={address}"));
+            self.cmds.push(format!("--private-key={private_key}"));
+            self
+        }
+    }
 
-    // impl Image for LiquidatorBot {
+    impl Image for LiquidatorBot {
+        fn name(&self) -> &str {
+            "liquidator-e2e"
+        }
 
-    // }
+        fn tag(&self) -> &str {
+            "latest"
+        }
 
-    // #[rstest::fixture]
-    // async fn liquidator_bot() -> ContainerAsync<GenericImage> {
-    //     // 1. Build the local image
-    //     ImageBuilder::default()
-    //         .with_build_name("liquidator-bot-e2e")
-    //         .with_dockerfile(&liquidator_dockerfile_path())
-    //         .build()
-    //         .await;
+        fn ready_conditions(&self) -> Vec<WaitFor> {
+            vec![WaitFor::message_on_stdout("Starting from block")]
+        }
 
-    //     // 2. Run the container
-    //     LiquidatorBot::default()
-    //         .with_container_name("liquidator-bot-container")
-    //         .start()
-    //         .await
-    //         .unwrap()
-    // }
+        fn env_vars(
+            &self,
+        ) -> impl IntoIterator<
+            Item = (
+                impl Into<std::borrow::Cow<'_, str>>,
+                impl Into<std::borrow::Cow<'_, str>>,
+            ),
+        > {
+            &self.env_vars
+        }
+
+        fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {
+            &self.cmds
+        }
+    }
+
+    #[rstest::fixture]
+    async fn liquidator_bot_container() -> ContainerAsync<LiquidatorBot> {
+        // 1. Build the local image
+        println!("{}", format!("Building liquidator bot image..., {:#?}", liquidator_dockerfile_path()));
+        ImageBuilder::default()
+            .with_build_name("liquidator-bot-e2e")
+            .with_dockerfile(&liquidator_dockerfile_path())
+            .build()
+            .await;
+
+        // 2. setup env vars
+
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "PRAGMA_API_KEY".to_string(),
+            env::var("PRAGMA_API_KEY").unwrap(),
+        );
+        env_vars.insert(
+            "APIBARA_API_KEY".to_string(),
+            env::var("APIBARA_API_KEY").unwrap(),
+        );
+
+        // 3. Run the container
+        LiquidatorBot::default()
+            .with_env_vars(env_vars)
+            .with_onchain_network("mainnet")
+            .with_rpc_url("127.0.0.1:5050")
+            .with_starting_block("600000")
+            .with_pragma_base_url("https://api.dev.pragma.build")
+            .with_account(
+                "0x14923a0e03ec4f7484f600eab5ecf3e4eacba20ffd92d517b213193ea991502",
+                "0xe5852452e0757e16b127975024ade3eb",
+            )
+            .start()
+            .await
+            .unwrap()
+    }
 
     #[rstest]
     #[tokio::test]
     async fn test_liquidate_position(
         #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
+        #[future] liquidator_bot_container: ContainerAsync<LiquidatorBot>,
     ) {
         let _devnet = starknet_devnet_container.await;
+        let _bot = liquidator_bot_container.await;
 
         let contract_artifact: SierraClass = serde_json::from_reader(
             std::fs::File::open("abis/vesu_liquidate_Liquidate.contract_class.json").unwrap(),
@@ -483,7 +556,10 @@ mod tests {
                         "0x00000005dd3D2F4429AF886cD1a3b08289DBcEa99A294197E9eB43b0e0325b4b",
                     )
                     .unwrap(),
-                    Felt::ZERO,
+                    Felt::from_hex(
+                        "0x02545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef",
+                    )
+                    .unwrap(),
                 ],
                 Felt::from_dec_str("0").unwrap(),
                 false,
