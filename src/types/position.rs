@@ -270,19 +270,23 @@ impl fmt::Display for Position {
     }
 }
 
-
 #[cfg(test)]
-mod tests{
+mod tests {
     use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+    use anyhow::Result;
     use bigdecimal::{num_bigint::BigInt, BigDecimal};
-    use tokio::sync::Mutex;
     use maplit::hashmap;
     use starknet::core::types::Felt;
-    use anyhow::Result;
+    use tokio::sync::Mutex;
     use url::Url;
 
-    use crate::{cli::NetworkName, config::Config, services::oracle::LatestOraclePrices, types::{asset::Asset, position::Position}};
+    use crate::{
+        cli::NetworkName,
+        config::Config,
+        services::oracle::LatestOraclePrices,
+        types::{asset::Asset, position::Position},
+    };
 
     #[tokio::test]
     async fn test_position_ltv() {
@@ -291,13 +295,19 @@ mod tests{
             collateral: Asset {
                 name: "ETH".to_string(),
                 amount: BigDecimal::from(1),
-                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                address: Felt::from_hex(
+                    "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                )
+                .unwrap(),
                 decimals: 18,
             },
             debt: Asset {
                 name: "USDC".to_string(),
                 amount: BigDecimal::from(500),
-                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                address: Felt::from_hex(
+                    "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+                )
+                .unwrap(),
                 decimals: 6,
             },
             user_address: Felt::from_hex("0x05").unwrap(),
@@ -307,11 +317,13 @@ mod tests{
         let price_map: HashMap<String, BigDecimal> = hashmap! {
             String::from("eth") => BigDecimal::from(2000),
             String::from("usdc") => BigDecimal::from(1),
-        } ;
-        let mocked_oracle_price = LatestOraclePrices { 0 : Arc::new(Mutex::new(price_map))};
+        };
+        let mocked_oracle_price = LatestOraclePrices {
+            0: Arc::new(Mutex::new(price_map)),
+        };
 
         let ltv = position.ltv(&mocked_oracle_price).await.unwrap();
-        assert_eq!(ltv, BigDecimal::new(BigInt::from(25),2));
+        assert_eq!(ltv, BigDecimal::new(BigInt::from(25), 2));
     }
 
     #[tokio::test]
@@ -321,13 +333,19 @@ mod tests{
             collateral: Asset {
                 name: "ETH".to_string(),
                 amount: BigDecimal::from(1),
-                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                address: Felt::from_hex(
+                    "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                )
+                .unwrap(),
                 decimals: 18,
             },
             debt: Asset {
                 name: "USDC".to_string(),
                 amount: BigDecimal::from(1100),
-                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                address: Felt::from_hex(
+                    "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+                )
+                .unwrap(),
                 decimals: 6,
             },
             user_address: Felt::from_hex("0x05").unwrap(),
@@ -337,8 +355,10 @@ mod tests{
         let price_map: HashMap<String, BigDecimal> = hashmap! {
             String::from("eth") => BigDecimal::from(2000),
             String::from("usdc") => BigDecimal::from(1),
-        } ;
-        let mocked_oracle_price = LatestOraclePrices { 0 : Arc::new(Mutex::new(price_map))};
+        };
+        let mocked_oracle_price = LatestOraclePrices {
+            0: Arc::new(Mutex::new(price_map)),
+        };
 
         assert!(position.is_liquidable(&mocked_oracle_price).await);
     }
@@ -350,13 +370,19 @@ mod tests{
             collateral: Asset {
                 name: "ETH".to_string(),
                 amount: BigDecimal::from(0),
-                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                address: Felt::from_hex(
+                    "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                )
+                .unwrap(),
                 decimals: 18,
             },
             debt: Asset {
                 name: "USDC".to_string(),
                 amount: BigDecimal::from(0),
-                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                address: Felt::from_hex(
+                    "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+                )
+                .unwrap(),
                 decimals: 6,
             },
             user_address: Felt::from_hex("0x05").unwrap(),
@@ -373,13 +399,19 @@ mod tests{
             collateral: Asset {
                 name: "ETH".to_string(),
                 amount: BigDecimal::from(1),
-                address: Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap(),
+                address: Felt::from_hex(
+                    "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                )
+                .unwrap(),
                 decimals: 18,
             },
             debt: Asset {
                 name: "USDC".to_string(),
                 amount: BigDecimal::from(1250),
-                address: Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap(),
+                address: Felt::from_hex(
+                    "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+                )
+                .unwrap(),
                 decimals: 6,
             },
             user_address: Felt::from_hex("0x05").unwrap(),
@@ -389,10 +421,18 @@ mod tests{
         let price_map: HashMap<String, BigDecimal> = hashmap! {
             String::from("eth") => BigDecimal::from(2000),
             String::from("usdc") => BigDecimal::from(1),
-        } ;
-        let mocked_oracle_price = LatestOraclePrices { 0 : Arc::new(Mutex::new(price_map))};
+        };
+        let mocked_oracle_price = LatestOraclePrices {
+            0: Arc::new(Mutex::new(price_map)),
+        };
 
-        let liquidable_amount = position.liquidable_amount(&mocked_oracle_price).await.unwrap();
-        assert_eq!(liquidable_amount, BigDecimal::from(250) * BigDecimal::new(BigInt::from(102), 2));
+        let liquidable_amount = position
+            .liquidable_amount(&mocked_oracle_price)
+            .await
+            .unwrap();
+        assert_eq!(
+            liquidable_amount,
+            BigDecimal::from(250) * BigDecimal::new(BigInt::from(102), 2)
+        );
     }
 }

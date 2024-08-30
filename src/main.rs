@@ -85,7 +85,7 @@ fn print_app_title(account_address: Felt, network: NetworkName, starting_block: 
 //         );
 //         // assert that a position is retrieved
 //         // create monitoring
-//         // 
+//         //
 
 //         todo!()
 //     }
