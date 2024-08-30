@@ -1,28 +1,19 @@
 ---
-name: Task - Rust Tests & Coverage
+name: Task - Format, Clippy, Machete, LLVM-Cov, Nextest
 
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  coverage:
-    # sadly, for now we have to "rebuild" for the coverage
+  rust_build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
 
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key
       - run: rustup show
-
-      - uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: taiki-e/install-action@nextest
-
-      - name: Clean workspace
-        run: |
-          cargo llvm-cov clean --workspace
 
       - uses: Swatinem/rust-cache@v2
 
@@ -31,6 +22,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler libprotobuf-dev
           protoc --version
+
+      - name: Build the project
+        run: |
+          cargo build --release
+      
+      - name: Format and clippy
+        run: |
+          cargo fmt -- --check
+          cargo clippy --no-deps -- -D warnings
+          cargo clippy --tests --no-deps -- -D warnings
+
+      - name: Check for unused dependencies
+        uses: bnjbvr/cargo-machete@main
+      
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
+
+      - name: Clean workspace
+        run: |
+          cargo llvm-cov clean --workspace
 
       - name: Run llvm-cov
         run: |
