@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Neg;
-use Arc;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
@@ -374,16 +374,19 @@ mod tests {
         contract::ContractFactory,
         core::{
             chain_id,
-            types::{contract::SierraClass, BlockId, BlockTag, Felt},
+            types::{
+                contract::{CompiledClass, SierraClass},
+                BlockId, BlockTag, Felt,
+            },
             utils::{cairo_short_string_to_felt, get_selector_from_name},
         },
-        providers::{jsonrpc::HttpTransport, JsonRpcClient},
+        providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
         signers::{LocalWallet, SigningKey},
     };
     use url::Url;
 
     use rstest::*;
-    use testcontainers::core::wait::WaitFor;
+    use testcontainers::core::{wait::WaitFor, Mount};
     use testcontainers::runners::AsyncRunner;
     use testcontainers::Image;
     use testcontainers::{ContainerAsync, GenericImage, ImageExt};
@@ -395,12 +398,14 @@ mod tests {
     };
 
     const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
-    const DEVNET_IMAGE_TAG: &str = "0050fac5c151daae82105cfe27e7ea5fa0665f15";
+    const DEVNET_IMAGE_TAG: &str = "0.1.2";
     const DEVNET_PORT: u16 = 5050;
 
     const APIBARA_IMAGE: &str = "quay.io/apibara/starknet";
     const APIBARA_IMAGE_TAG: &str = "latest";
     const APIBARA_PORT: u16 = 7171;
+
+    const FORK_BLOCK: u32 = 657065;
 
     #[rstest::fixture]
     async fn starknet_devnet_container() -> ContainerAsync<GenericImage> {
@@ -412,6 +417,8 @@ mod tests {
                 "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
                 "--block-generation-on=1",
                 "--seed=1",
+                "--chain-id=MAINNET",
+                &format!("--fork-block={FORK_BLOCK}"),
             ])
             .with_container_name("starknet-devnet")
             .start()
@@ -421,12 +428,24 @@ mod tests {
 
     #[rstest::fixture]
     async fn apibara_container() -> ContainerAsync<GenericImage> {
+        let mount = Mount::tmpfs_mount("/.tmp");
         GenericImage::new(APIBARA_IMAGE, APIBARA_IMAGE_TAG)
             .with_wait_for(WaitFor::message_on_stdout("starting server"))
             .with_exposed_port(APIBARA_PORT.into())
             .with_mapped_port(APIBARA_PORT, APIBARA_PORT.into())
-            .with_cmd(vec!["start", "--rpc=http://host.docker.internal:5050"])
+            .with_env_var("TMPDIR", "/.tmp")
+            .with_cmd(vec![
+                "start",
+                "--devnet",
+                "--rpc=http://host.docker.internal:5050",
+                "--wait-for-rpc",
+                &format!(
+                    "--dangerously-override-ingestion-start-block={}",
+                    FORK_BLOCK + 1
+                ),
+            ])
             .with_container_name("apibara-devnet")
+            .with_mount(mount)
             .start()
             .await
             .expect("Failed to start devnet")
@@ -552,8 +571,7 @@ mod tests {
 
         let devnet_url = Url::parse("http://127.0.0.1:5050").unwrap();
 
-        let provider =
-            Arc::new(JsonRpcClient::new(HttpTransport::new(devnet_url.clone())));
+        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(devnet_url.clone())));
 
         // We use devnet first account with seed 1
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(
@@ -587,10 +605,19 @@ mod tests {
         // Auto impersonate
         enable_auto_impersonate(devnet_url.clone()).await;
 
+        // Declare liquidate contract
         let flattened_class = liquidate_contract_artifact.flatten().unwrap();
+        let compiled_class: CompiledClass = serde_json::from_reader(
+            std::fs::File::open("abis/vesu_liquidate_Liquidate.compiled_contract_class.json")
+                .unwrap(),
+        )
+        .unwrap();
 
-        let result = account
-            .declare_v2(Arc::new(flattened_class), compiled_class_hash)
+        let _ = account
+            .declare_v2(
+                Arc::new(flattened_class),
+                compiled_class.class_hash().unwrap(),
+            )
             .send()
             .await
             .unwrap();
@@ -625,6 +652,22 @@ mod tests {
         .unwrap();
 
         let mock_oracle_class_hash = mock_oracle_contract_artifact.class_hash().unwrap();
+
+        // Declare Mock oracle
+        let flattened_class = mock_oracle_contract_artifact.flatten().unwrap();
+        let compiled_class: CompiledClass = serde_json::from_reader(
+            std::fs::File::open("abis/vesu_MockPragmaOracle.compiled_contract_class.json").unwrap(),
+        )
+        .unwrap();
+
+        let _ = account
+            .declare_v2(
+                Arc::new(flattened_class),
+                compiled_class.class_hash().unwrap(),
+            )
+            .send()
+            .await
+            .unwrap();
 
         let mock_oracle_contract_factory =
             ContractFactory::new(mock_oracle_class_hash, account.clone());
