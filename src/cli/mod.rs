@@ -31,6 +31,10 @@ pub struct RunCmd {
     #[clap(long, default_value = "config.yaml", value_name = "VESU CONFIG PATH")]
     pub config_path: Option<PathBuf>,
 
+    /// Configuration file path.
+    #[clap(long, default_value = "data.json", value_name = "STORAGE PATH")]
+    pub storage_path: Option<PathBuf>,
+
     /// The block you want to start syncing from.
     #[clap(long, short, value_name = "BLOCK NUMBER")]
     pub starting_block: u64,

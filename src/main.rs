@@ -33,7 +33,6 @@ async fn main() -> Result<()> {
     print_app_title(
         run_cmd.account_params.account_address,
         run_cmd.network,
-        run_cmd.starting_block,
     );
 
     let rpc_url = run_cmd.rpc_url.clone();
@@ -45,7 +44,7 @@ async fn main() -> Result<()> {
 }
 
 /// Prints information about the bot parameters.
-fn print_app_title(account_address: Felt, network: NetworkName, starting_block: u64) {
+fn print_app_title(account_address: Felt, network: NetworkName) {
     println!("\n
 ██╗   ██╗███████╗███████╗██╗   ██╗    ██╗     ██╗ ██████╗ ██╗   ██╗██╗██████╗  █████╗ ████████╗ ██████╗ ██████╗ 
 ██║   ██║██╔════╝██╔════╝██║   ██║    ██║     ██║██╔═══██╗██║   ██║██║██╔══██╗██╔══██╗╚══██╔══╝██╔═══██╗██╔══██╗
@@ -55,7 +54,5 @@ fn print_app_title(account_address: Felt, network: NetworkName, starting_block: 
   ╚═══╝  ╚══════╝╚══════╝ ╚═════╝     ╚══════╝╚═╝ ╚══▀▀═╝  ╚═════╝ ╚═╝╚═════╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
 
   🤖 Liquidator 👉 0x{:x}
-  🎯 On {}
-  🥡 Starting from block {}
-    \n", account_address, network, starting_block);
+  🎯 On {}", account_address, network);
 }
