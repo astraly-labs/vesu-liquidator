@@ -367,7 +367,7 @@ impl fmt::Display for Position {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, env, sync::Arc};
+    use std::{collections::HashMap, env, sync::Arc, time::Duration};
 
     use starknet::{
         accounts::{Account, Call, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount},
@@ -383,6 +383,7 @@ mod tests {
         providers::{jsonrpc::HttpTransport, JsonRpcClient},
         signers::{LocalWallet, SigningKey},
     };
+    use tokio::time::sleep;
     use url::Url;
 
     use rstest::*;
@@ -415,7 +416,7 @@ mod tests {
             .with_mapped_port(DEVNET_PORT, DEVNET_PORT.into())
             .with_cmd(vec![
                 "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
-                "--block-generation-on=1",
+                "--block-generation-on=5",
                 "--seed=1",
                 "--chain-id=MAINNET",
                 &format!("--fork-block={FORK_BLOCK}"),
@@ -470,7 +471,7 @@ mod tests {
             self.cmds.push(format!("--rpc-url={rpc_url}"));
             self
         }
-        fn with_starting_block(mut self, starting_block: &str) -> Self {
+        fn with_starting_block(mut self, starting_block: u32) -> Self {
             self.cmds.push(format!("--starting-block={starting_block}"));
             self
         }
@@ -547,13 +548,14 @@ mod tests {
         LiquidatorBot::default()
             .with_env_vars(env_vars)
             .with_onchain_network("devnet")
-            .with_rpc_url("http://127.0.0.1:5050")
-            .with_starting_block("600000")
+            .with_rpc_url("http://host.docker.internal:5050")
+            .with_starting_block(FORK_BLOCK)
             .with_pragma_base_url("https://api.dev.pragma.build")
             .with_account(
                 "0x14923a0e03ec4f7484f600eab5ecf3e4eacba20ffd92d517b213193ea991502",
                 "0xe5852452e0757e16b127975024ade3eb",
             )
+            .with_name("liquidator-bot-e2e")
             .start()
             .await
             .unwrap()
@@ -718,6 +720,8 @@ mod tests {
         .await;
 
         // Assert that the bot has liquidated the position
+
+        sleep(Duration::from_secs(600)).await;
 
         //TODO : Check Key
         assert!(logs_contain("[🔭 Monitoring] Liquidatable position found "));
