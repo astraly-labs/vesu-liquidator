@@ -582,7 +582,7 @@ mod tests {
                 .unwrap();
         let mut account = SingleOwnerAccount::new(
             provider.clone(),
-            signer,
+            signer.clone(),
             address,
             chain_id::MAINNET,
             ExecutionEncoding::New,
@@ -646,8 +646,7 @@ mod tests {
 
         // Deploy mock oracle contract
         let mock_oracle_contract_artifact: SierraClass = serde_json::from_reader(
-            std::fs::File::open("abis/vesu_MockPragmaOracle.contract_class.json")
-                .unwrap(),
+            std::fs::File::open("abis/vesu_MockPragmaOracle.contract_class.json").unwrap(),
         )
         .unwrap();
 
@@ -660,7 +659,7 @@ mod tests {
         )
         .unwrap();
 
-        let _ = account
+        let declare_res = account
             .declare_v2(
                 Arc::new(flattened_class),
                 compiled_class.class_hash().unwrap(),
@@ -678,14 +677,24 @@ mod tests {
             .expect("Unable to deploy mock oracle contract");
 
         // Upgrade pragma contract to mock oracle
-        let res = account
+        let admin_address =
+            Felt::from_hex("0x02356b628D108863BAf8644c945d97bAD70190AF5957031f4852d00D0F690a77")
+                .unwrap();
+        let admin_account = SingleOwnerAccount::new(
+            provider.clone(),
+            signer,
+            admin_address,
+            chain_id::MAINNET,
+            ExecutionEncoding::New,
+        );
+        let res = admin_account
             .execute_v1(vec![Call {
                 to: Felt::from_hex(
                     "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b",
                 )
                 .unwrap(),
                 selector: get_selector_from_name("upgrade").unwrap(),
-                calldata: vec![mock_oracle_class_hash],
+                calldata: vec![declare_res.class_hash],
             }])
             .send()
             .await

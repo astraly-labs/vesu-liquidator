@@ -34,7 +34,14 @@ pub async fn start_all_services(
     let (positions_sender, position_receiver) = mpsc::channel::<(u64, Position)>(1024);
 
     // TODO: Add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
-    let mut storage = JsonStorage::new(&run_cmd.storage_path.unwrap_or_default().as_path().to_str().unwrap());
+    let mut storage = JsonStorage::new(
+        &run_cmd
+            .storage_path
+            .unwrap_or_default()
+            .as_path()
+            .to_str()
+            .unwrap(),
+    );
     let (last_block_indexed, _) = storage.load().await?;
 
     // TODO: Add force start from staring block in cli
@@ -56,7 +63,7 @@ pub async fn start_all_services(
         run_cmd.pragma_api_base_url,
         run_cmd.pragma_api_key.unwrap(),
         latest_oracle_prices.clone(),
-        run_cmd.network
+        run_cmd.network,
     );
 
     tracing::info!("⏳ Waiting a few moment for the indexer to fetch positions...\n");
@@ -114,8 +121,12 @@ fn start_oracle_service(
     latest_oracle_prices: LatestOraclePrices,
     network: NetworkName,
 ) -> JoinHandle<Result<()>> {
-    let oracle_service =
-        OracleService::new(pragma_api_base_url, pragma_api_key, latest_oracle_prices, network);
+    let oracle_service = OracleService::new(
+        pragma_api_base_url,
+        pragma_api_key,
+        latest_oracle_prices,
+        network,
+    );
 
     tokio::spawn(async move {
         oracle_service

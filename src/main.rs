@@ -30,10 +30,7 @@ async fn main() -> Result<()> {
     let mut run_cmd = RunCmd::parse();
     run_cmd.validate()?;
 
-    print_app_title(
-        run_cmd.account_params.account_address,
-        run_cmd.network,
-    );
+    print_app_title(run_cmd.account_params.account_address, run_cmd.network);
 
     let rpc_url = run_cmd.rpc_url.clone();
     let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));

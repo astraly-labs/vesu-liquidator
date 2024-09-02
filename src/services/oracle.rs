@@ -22,7 +22,12 @@ pub struct OracleService {
 }
 
 impl OracleService {
-    pub fn new(api_url: Url, api_key: String, latest_prices: LatestOraclePrices,network: NetworkName) -> Self {
+    pub fn new(
+        api_url: Url,
+        api_key: String,
+        latest_prices: LatestOraclePrices,
+        network: NetworkName,
+    ) -> Self {
         let network_to_fetch = match network {
             NetworkName::Sepolia => "sepolia",
             _ => "mainnet",
