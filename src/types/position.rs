@@ -380,7 +380,7 @@ mod tests {
             },
             utils::{cairo_short_string_to_felt, get_selector_from_name},
         },
-        providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
+        providers::{jsonrpc::HttpTransport, JsonRpcClient},
         signers::{LocalWallet, SigningKey},
     };
     use url::Url;
@@ -646,7 +646,7 @@ mod tests {
 
         // Deploy mock oracle contract
         let mock_oracle_contract_artifact: SierraClass = serde_json::from_reader(
-            std::fs::File::open("abis/vesu_liquidate_MockPragmaOracle.contract_class.json")
+            std::fs::File::open("abis/vesu_MockPragmaOracle.contract_class.json")
                 .unwrap(),
         )
         .unwrap();
