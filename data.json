@@ -1,0 +1,22 @@
+{
+  "last_block_indexed": 657065,
+  "positions": {
+    "1544631220790412309": {
+      "user_address": "0x765701e623e0df937971d25745f12a2aa8c6be275556f2d0c56828732639718",
+      "pool_id": "0x4dc4f0ca6ea4961e4c8373265bfd5317678f4fe374d76f3fd7135f57763bf28",
+      "collateral": {
+        "name": "ETH",
+        "address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+        "amount": "0.319860064647672274",
+        "decimals": 18
+      },
+      "debt": {
+        "name": "USDC",
+        "address": "0x53c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+        "amount": "300.484447",
+        "decimals": 6
+      },
+      "lltv": "0.680000000000000000"
+    }
+  }
+}

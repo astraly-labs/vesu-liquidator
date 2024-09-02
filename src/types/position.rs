@@ -448,16 +448,16 @@ mod tests {
             self
         }
         fn with_rpc_url(mut self, rpc_url: &str) -> Self {
-            self.cmds.push(format!("--rpc_url={rpc_url}"));
+            self.cmds.push(format!("--rpc-url={rpc_url}"));
             self
         }
         fn with_starting_block(mut self, starting_block: &str) -> Self {
-            self.cmds.push(format!("--starting_block={starting_block}"));
+            self.cmds.push(format!("--starting-block={starting_block}"));
             self
         }
         fn with_pragma_base_url(mut self, pragma_base_url: &str) -> Self {
             self.cmds
-                .push(format!("--pragma-base-api-url={pragma_base_url}"));
+                .push(format!("--pragma-api-base-url={pragma_base_url}"));
             self
         }
         fn with_account(mut self, address: &str, private_key: &str) -> Self {
@@ -528,7 +528,7 @@ mod tests {
         LiquidatorBot::default()
             .with_env_vars(env_vars)
             .with_onchain_network("devnet")
-            .with_rpc_url("127.0.0.1:5050")
+            .with_rpc_url("http://127.0.0.1:5050")
             .with_starting_block("600000")
             .with_pragma_base_url("https://api.dev.pragma.build")
             .with_account(

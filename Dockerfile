@@ -4,7 +4,7 @@ FROM rust:1.80 AS builder
 WORKDIR /app
 
 # Copy only necessary files
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 COPY src ./src
 COPY config.yaml .
 
