@@ -9,10 +9,6 @@ docker-compose.yml
 .git
 .gitignore
 
-# Exclude build artifacts and dependencies
-/target
-Cargo.lock
-
 # Exclude any large data files, if present
 *.data
 *.csv

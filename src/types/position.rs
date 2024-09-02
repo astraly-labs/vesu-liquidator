@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Neg;
-use std::sync::Arc;
+use Arc;
 use tokio::sync::RwLock;
 
 use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
@@ -367,7 +367,7 @@ impl fmt::Display for Position {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, env};
+    use std::{collections::HashMap, env, sync::Arc};
 
     use starknet::{
         accounts::{Account, Call, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount},
@@ -395,7 +395,7 @@ mod tests {
     };
 
     const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
-    const DEVNET_IMAGE_TAG: &str = "latest";
+    const DEVNET_IMAGE_TAG: &str = "0050fac5c151daae82105cfe27e7ea5fa0665f15";
     const DEVNET_PORT: u16 = 5050;
 
     const APIBARA_IMAGE: &str = "quay.io/apibara/starknet";
@@ -410,23 +410,23 @@ mod tests {
             .with_mapped_port(DEVNET_PORT, DEVNET_PORT.into())
             .with_cmd(vec![
                 "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
+                "--block-generation-on=1",
                 "--seed=1",
             ])
+            .with_container_name("starknet-devnet")
             .start()
             .await
             .expect("Failed to start devnet")
     }
 
     #[rstest::fixture]
-    async fn apibara_container(
-        #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
-    ) -> ContainerAsync<GenericImage> {
-        let _devnet = starknet_devnet_container.await;
+    async fn apibara_container() -> ContainerAsync<GenericImage> {
         GenericImage::new(APIBARA_IMAGE, APIBARA_IMAGE_TAG)
             .with_wait_for(WaitFor::message_on_stdout("starting server"))
             .with_exposed_port(APIBARA_PORT.into())
             .with_mapped_port(APIBARA_PORT, APIBARA_PORT.into())
             .with_cmd(vec!["start", "--rpc=http://host.docker.internal:5050"])
+            .with_container_name("apibara-devnet")
             .start()
             .await
             .expect("Failed to start devnet")
@@ -545,13 +545,15 @@ mod tests {
     #[traced_test]
     async fn test_liquidate_position(
         #[future] liquidator_bot_container: ContainerAsync<LiquidatorBot>,
+        #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
     ) {
+        let _devnet = starknet_devnet_container.await;
         let _bot = liquidator_bot_container.await;
 
         let devnet_url = Url::parse("http://127.0.0.1:5050").unwrap();
 
         let provider =
-            std::sync::Arc::new(JsonRpcClient::new(HttpTransport::new(devnet_url.clone())));
+            Arc::new(JsonRpcClient::new(HttpTransport::new(devnet_url.clone())));
 
         // We use devnet first account with seed 1
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(
@@ -580,10 +582,22 @@ mod tests {
 
         let liquidate_class_hash = liquidate_contract_artifact.class_hash().unwrap();
 
-        let account = std::sync::Arc::new(account);
+        let account = Arc::new(account);
+
+        // Auto impersonate
+        enable_auto_impersonate(devnet_url.clone()).await;
+
+        let flattened_class = liquidate_contract_artifact.flatten().unwrap();
+
+        let result = account
+            .declare_v2(Arc::new(flattened_class), compiled_class_hash)
+            .send()
+            .await
+            .unwrap();
 
         let liquidate_contract_factory =
             ContractFactory::new(liquidate_class_hash, account.clone());
+
         liquidate_contract_factory
             .deploy_v1(
                 vec![
@@ -619,9 +633,6 @@ mod tests {
             .send()
             .await
             .expect("Unable to deploy mock oracle contract");
-
-        // Auto impersonate
-        enable_auto_impersonate(devnet_url.clone()).await;
 
         // Upgrade pragma contract to mock oracle
         let res = account
@@ -686,7 +697,7 @@ mod tests {
 
     async fn set_pragma_price<A>(
         account: A,
-        provider: std::sync::Arc<JsonRpcClient<HttpTransport>>,
+        provider: Arc<JsonRpcClient<HttpTransport>>,
         price: u128,
     ) where
         A: ConnectedAccount + Sync,
