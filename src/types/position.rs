@@ -416,7 +416,7 @@ mod tests {
             .with_mapped_port(DEVNET_PORT, DEVNET_PORT.into())
             .with_cmd(vec![
                 "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
-                "--block-generation-on=5",
+                "--block-generation-on=transaction",
                 "--seed=1",
                 "--chain-id=MAINNET",
                 &format!("--fork-block={FORK_BLOCK}"),
