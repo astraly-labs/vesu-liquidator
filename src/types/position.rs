@@ -367,8 +367,9 @@ impl fmt::Display for Position {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, env, sync::Arc, time::Duration};
+    use std::{collections::HashMap, env, path::PathBuf, sync::Arc, time::Duration};
 
+    use bigdecimal::{num_bigint::BigInt, BigDecimal};
     use starknet::{
         accounts::{Account, Call, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount},
         contract::ContractFactory,
@@ -383,7 +384,7 @@ mod tests {
         providers::{jsonrpc::HttpTransport, JsonRpcClient},
         signers::{LocalWallet, SigningKey},
     };
-    use tokio::time::sleep;
+    use tokio::{sync::Mutex, time::sleep};
     use url::Url;
 
     use rstest::*;
@@ -393,10 +394,51 @@ mod tests {
     use testcontainers::{ContainerAsync, GenericImage, ImageExt};
     use tracing_test::traced_test;
 
-    use crate::utils::{
+    use crate::{cli::NetworkName, config::Config, services::oracle::LatestOraclePrices, types::{asset::Asset, position::Position}, utils::{
         test_utils::{liquidator_dockerfile_path, ImageBuilder},
         wait_for_tx,
-    };
+    }};
+
+    #[tokio::test]
+    async fn test_liquidable(){
+        let config = Config::new(NetworkName::Mainnet, &PathBuf::from("./config.yaml")).unwrap();
+        let mut eth = Asset::from_address(&config, Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap();
+        eth.amount = BigDecimal::new(BigInt::from(3),1);
+        let mut usdc = Asset::from_address(&config, Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap()).unwrap();
+        usdc.amount = BigDecimal::new(BigInt::from(300),0);
+        let position = Position { 
+                                    user_address: Felt::from_hex("0x14923a0e03ec4f7484f600eab5ecf3e4eacba20ffd92d517b213193ea991502").unwrap(),
+                                    pool_id: Felt::from_hex("0x4dc4f0ca6ea4961e4c8373265bfd5317678f4fe374d76f3fd7135f57763bf28").unwrap(),
+                                    collateral: eth, //ETH
+                                    debt: usdc,
+                                    lltv: BigDecimal::new(BigInt::from(68), 2)
+                                };
+        
+        let mut oracle_price : HashMap<String, BigDecimal> = HashMap::new();
+        oracle_price.insert("eth".to_string(), BigDecimal::new(BigInt::from(2000), 0));
+        oracle_price.insert("usdc".to_string(), BigDecimal::new(BigInt::from(1), 0));
+
+        let last_oracle_price = LatestOraclePrices(Arc::new(Mutex::new(oracle_price)));
+        // Test Ltv computation
+        assert_eq!(position.ltv(&last_oracle_price).await.unwrap(), BigDecimal::new(BigInt::from(5),1));
+        // Test is not liquidatable
+        assert_eq!(position.is_liquidable(&last_oracle_price).await, false);
+        // changing price to test a non liquidable position
+        {
+            last_oracle_price.0.lock().await.insert("eth".to_string(), BigDecimal::new(BigInt::from(1000), 0));
+        }
+        //check new ltv
+        assert_eq!(position.ltv(&last_oracle_price).await.unwrap(), BigDecimal::from(1));
+        //check that its liquidatable
+        assert_eq!(position.is_liquidable(&last_oracle_price).await, true);
+        // changing price to test a non liquidable position
+
+        let (amount_as_debt, amount_as_collateral) = position.liquidable_amount(&last_oracle_price).await.unwrap();
+        // should be 300 $ with 2% overhead => 306
+        assert_eq!(amount_as_debt, BigDecimal::from(306)); // 306 USDC with 1 USDC = 1$
+        assert_eq!(amount_as_collateral, BigDecimal::new(BigInt::from(306),3).with_scale(amount_as_collateral.as_bigint_and_exponent().1)); // 0,306 with 1ETH = 1000
+            
+    }
 
     const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
     const DEVNET_IMAGE_TAG: &str = "0.1.2";
@@ -406,7 +448,7 @@ mod tests {
     const APIBARA_IMAGE_TAG: &str = "latest";
     const APIBARA_PORT: u16 = 7171;
 
-    const FORK_BLOCK: u32 = 657065;
+    const FORK_BLOCK: u32 = 657064;
 
     #[rstest::fixture]
     async fn starknet_devnet_container() -> ContainerAsync<GenericImage> {
@@ -519,8 +561,8 @@ mod tests {
     #[rstest::fixture]
     async fn liquidator_bot_container(
         #[future] apibara_container: ContainerAsync<GenericImage>,
-    ) -> ContainerAsync<LiquidatorBot> {
-        let _apibara = apibara_container.await;
+    ) -> (ContainerAsync<GenericImage>,ContainerAsync<LiquidatorBot>) {
+        let apibara = apibara_container.await;
         // 1. Build the local image
         println!(
             "Building liquidator bot image..., {:#?}",
@@ -545,7 +587,7 @@ mod tests {
         );
 
         // 3. Run the container
-        LiquidatorBot::default()
+        (apibara, LiquidatorBot::default()
             .with_env_vars(env_vars)
             .with_onchain_network("devnet")
             .with_rpc_url("http://host.docker.internal:5050")
@@ -558,18 +600,18 @@ mod tests {
             .with_name("liquidator-bot-e2e")
             .start()
             .await
-            .unwrap()
+            .unwrap())
     }
 
     #[rstest]
     #[tokio::test]
     #[traced_test]
     async fn test_liquidate_position(
-        #[future] liquidator_bot_container: ContainerAsync<LiquidatorBot>,
+        #[future] liquidator_bot_container: (ContainerAsync<GenericImage>,ContainerAsync<LiquidatorBot>),
         #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
     ) {
         let _devnet = starknet_devnet_container.await;
-        let _bot = liquidator_bot_container.await;
+        let (_apibara,_bot) = liquidator_bot_container.await;
 
         let devnet_url = Url::parse("http://127.0.0.1:5050").unwrap();
 
@@ -721,7 +763,7 @@ mod tests {
 
         // Assert that the bot has liquidated the position
 
-        sleep(Duration::from_secs(600)).await;
+        sleep(Duration::from_secs(1000)).await;
 
         //TODO : Check Key
         assert!(logs_contain("[🔭 Monitoring] Liquidatable position found "));
@@ -775,4 +817,6 @@ mod tests {
             .expect("Failed to set price");
         wait_for_tx(res.transaction_hash, provider).await.unwrap();
     }
+
+
 }
