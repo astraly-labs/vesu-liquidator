@@ -54,10 +54,14 @@ impl Config {
         let network = run_cmd.network;
         let liquidation_mode = run_cmd.liquidation_mode;
 
-        Self::new(network,liquidation_mode, &config_path)
+        Self::new(network, liquidation_mode, &config_path)
     }
 
-    pub fn new(network: NetworkName, liquidation_mode: LiquidationMode, config_path: &PathBuf) -> Result<Self> {
+    pub fn new(
+        network: NetworkName,
+        liquidation_mode: LiquidationMode,
+        config_path: &PathBuf,
+    ) -> Result<Self> {
         let raw_config: RawConfig = {
             let config_str = fs::read_to_string(config_path)?;
             serde_yaml::from_str(&config_str)?
