@@ -5,7 +5,7 @@ FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef AS builder 
+FROM chef AS builder
 RUN apt-get update && \
     apt-get install -y pkg-config protobuf-compiler libprotobuf-dev libssl-dev
 COPY --from=planner /app/recipe.json recipe.json

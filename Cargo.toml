@@ -35,14 +35,12 @@ url = "2.5.2"
 apibara-core = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 
-# Test dependencies
-rstest = "0.18.2"
-testcontainers = { version = "0.21.1" }
-
 [build-dependencies]
 cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.3.1", features = [
   "abigen-rs",
 ] }
 
 [dev-dependencies]
+rstest = "0.18.2"
+testcontainers = { version = "0.21.1" }
 tracing-test = "0.2.5"
