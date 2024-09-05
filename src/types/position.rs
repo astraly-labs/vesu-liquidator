@@ -137,7 +137,7 @@ impl Position {
         let collateral_factor = self.lltv.clone();
         let total_collateral_value_in_usd =
             self.collateral.amount.clone() * collateral_dollar_price.clone();
-        if liquidation_mode.as_bool() {
+        if liquidation_mode == LiquidationMode::Full {
             let total_collateral_value_in_usd = apply_overhead(total_collateral_value_in_usd);
             return Ok((
                 total_collateral_value_in_usd.clone() / debt_dollar_price,
