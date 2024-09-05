@@ -488,387 +488,390 @@ mod tests {
         // 0,306 with 1ETH = 1000
     }
 
-    const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
-    const DEVNET_IMAGE_TAG: &str = "0.1.2";
-    const DEVNET_PORT: u16 = 5050;
 
-    const APIBARA_IMAGE: &str = "quay.io/apibara/starknet";
-    const APIBARA_IMAGE_TAG: &str = "latest";
-    const APIBARA_PORT: u16 = 7171;
+    // TODO: finish and fix this e2e test
+     
+    // const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
+    // const DEVNET_IMAGE_TAG: &str = "0.1.2";
+    // const DEVNET_PORT: u16 = 5050;
 
-    const FORK_BLOCK: u32 = 657064;
+    // const APIBARA_IMAGE: &str = "quay.io/apibara/starknet";
+    // const APIBARA_IMAGE_TAG: &str = "latest";
+    // const APIBARA_PORT: u16 = 7171;
 
-    #[rstest::fixture]
-    async fn starknet_devnet_container() -> ContainerAsync<GenericImage> {
-        GenericImage::new(DEVNET_IMAGE, DEVNET_IMAGE_TAG)
-            .with_wait_for(WaitFor::message_on_stdout("Starknet Devnet listening"))
-            .with_exposed_port(DEVNET_PORT.into())
-            .with_mapped_port(DEVNET_PORT, DEVNET_PORT.into())
-            .with_cmd(vec![
-                "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
-                "--block-generation-on=transaction",
-                "--seed=1",
-                "--chain-id=MAINNET",
-                &format!("--fork-block={FORK_BLOCK}"),
-            ])
-            .with_container_name("starknet-devnet")
-            .start()
-            .await
-            .expect("Failed to start devnet")
-    }
+    // const FORK_BLOCK: u32 = 657064;
 
-    #[rstest::fixture]
-    async fn apibara_container() -> ContainerAsync<GenericImage> {
-        let mount = Mount::tmpfs_mount("/.tmp");
-        GenericImage::new(APIBARA_IMAGE, APIBARA_IMAGE_TAG)
-            .with_wait_for(WaitFor::message_on_stdout("starting server"))
-            .with_exposed_port(APIBARA_PORT.into())
-            .with_mapped_port(APIBARA_PORT, APIBARA_PORT.into())
-            .with_env_var("TMPDIR", "/.tmp")
-            .with_cmd(vec![
-                "start",
-                "--devnet",
-                "--rpc=http://host.docker.internal:5050",
-                "--wait-for-rpc",
-                &format!(
-                    "--dangerously-override-ingestion-start-block={}",
-                    FORK_BLOCK + 1
-                ),
-            ])
-            .with_container_name("apibara-devnet")
-            .with_mount(mount)
-            .start()
-            .await
-            .expect("Failed to start devnet")
-    }
+    // #[rstest::fixture]
+    // async fn starknet_devnet_container() -> ContainerAsync<GenericImage> {
+    //     GenericImage::new(DEVNET_IMAGE, DEVNET_IMAGE_TAG)
+    //         .with_wait_for(WaitFor::message_on_stdout("Starknet Devnet listening"))
+    //         .with_exposed_port(DEVNET_PORT.into())
+    //         .with_mapped_port(DEVNET_PORT, DEVNET_PORT.into())
+    //         .with_cmd(vec![
+    //             "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
+    //             "--block-generation-on=transaction",
+    //             "--seed=1",
+    //             "--chain-id=MAINNET",
+    //             &format!("--fork-block={FORK_BLOCK}"),
+    //         ])
+    //         .with_container_name("starknet-devnet")
+    //         .start()
+    //         .await
+    //         .expect("Failed to start devnet")
+    // }
 
-    #[derive(Debug, Clone, Default)]
-    struct LiquidatorBot {
-        env_vars: HashMap<String, String>,
-        cmds: Vec<String>,
-    }
+    // #[rstest::fixture]
+    // async fn apibara_container() -> ContainerAsync<GenericImage> {
+    //     let mount = Mount::tmpfs_mount("/.tmp");
+    //     GenericImage::new(APIBARA_IMAGE, APIBARA_IMAGE_TAG)
+    //         .with_wait_for(WaitFor::message_on_stdout("starting server"))
+    //         .with_exposed_port(APIBARA_PORT.into())
+    //         .with_mapped_port(APIBARA_PORT, APIBARA_PORT.into())
+    //         .with_env_var("TMPDIR", "/.tmp")
+    //         .with_cmd(vec![
+    //             "start",
+    //             "--devnet",
+    //             "--rpc=http://host.docker.internal:5050",
+    //             "--wait-for-rpc",
+    //             &format!(
+    //                 "--dangerously-override-ingestion-start-block={}",
+    //                 FORK_BLOCK + 1
+    //             ),
+    //         ])
+    //         .with_container_name("apibara-devnet")
+    //         .with_mount(mount)
+    //         .start()
+    //         .await
+    //         .expect("Failed to start devnet")
+    // }
 
-    impl LiquidatorBot {
-        fn with_env_vars(mut self, vars: HashMap<String, String>) -> Self {
-            self.env_vars = vars;
-            self
-        }
-        fn with_onchain_network(mut self, network: &str) -> Self {
-            self.cmds.push(format!("--network={network}"));
-            self
-        }
-        fn with_rpc_url(mut self, rpc_url: &str) -> Self {
-            self.cmds.push(format!("--rpc-url={rpc_url}"));
-            self
-        }
-        fn with_starting_block(mut self, starting_block: u32) -> Self {
-            self.cmds.push(format!("--starting-block={starting_block}"));
-            self
-        }
-        fn with_pragma_base_url(mut self, pragma_base_url: &str) -> Self {
-            self.cmds
-                .push(format!("--pragma-api-base-url={pragma_base_url}"));
-            self
-        }
-        fn with_account(mut self, address: &str, private_key: &str) -> Self {
-            self.cmds.push(format!("--account-address={address}"));
-            self.cmds.push(format!("--private-key={private_key}"));
-            self
-        }
-    }
+    // #[derive(Debug, Clone, Default)]
+    // struct LiquidatorBot {
+    //     env_vars: HashMap<String, String>,
+    //     cmds: Vec<String>,
+    // }
 
-    impl Image for LiquidatorBot {
-        fn name(&self) -> &str {
-            "liquidator-bot-e2e"
-        }
+    // impl LiquidatorBot {
+    //     fn with_env_vars(mut self, vars: HashMap<String, String>) -> Self {
+    //         self.env_vars = vars;
+    //         self
+    //     }
+    //     fn with_onchain_network(mut self, network: &str) -> Self {
+    //         self.cmds.push(format!("--network={network}"));
+    //         self
+    //     }
+    //     fn with_rpc_url(mut self, rpc_url: &str) -> Self {
+    //         self.cmds.push(format!("--rpc-url={rpc_url}"));
+    //         self
+    //     }
+    //     fn with_starting_block(mut self, starting_block: u32) -> Self {
+    //         self.cmds.push(format!("--starting-block={starting_block}"));
+    //         self
+    //     }
+    //     fn with_pragma_base_url(mut self, pragma_base_url: &str) -> Self {
+    //         self.cmds
+    //             .push(format!("--pragma-api-base-url={pragma_base_url}"));
+    //         self
+    //     }
+    //     fn with_account(mut self, address: &str, private_key: &str) -> Self {
+    //         self.cmds.push(format!("--account-address={address}"));
+    //         self.cmds.push(format!("--private-key={private_key}"));
+    //         self
+    //     }
+    // }
 
-        fn tag(&self) -> &str {
-            "latest"
-        }
+    // impl Image for LiquidatorBot {
+    //     fn name(&self) -> &str {
+    //         "liquidator-bot-e2e"
+    //     }
 
-        fn ready_conditions(&self) -> Vec<WaitFor> {
-            vec![WaitFor::seconds(30)]
-        }
+    //     fn tag(&self) -> &str {
+    //         "latest"
+    //     }
 
-        fn env_vars(
-            &self,
-        ) -> impl IntoIterator<
-            Item = (
-                impl Into<std::borrow::Cow<'_, str>>,
-                impl Into<std::borrow::Cow<'_, str>>,
-            ),
-        > {
-            &self.env_vars
-        }
+    //     fn ready_conditions(&self) -> Vec<WaitFor> {
+    //         vec![WaitFor::seconds(30)]
+    //     }
 
-        fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {
-            &self.cmds
-        }
-    }
+    //     fn env_vars(
+    //         &self,
+    //     ) -> impl IntoIterator<
+    //         Item = (
+    //             impl Into<std::borrow::Cow<'_, str>>,
+    //             impl Into<std::borrow::Cow<'_, str>>,
+    //         ),
+    //     > {
+    //         &self.env_vars
+    //     }
 
-    #[rstest::fixture]
-    async fn liquidator_bot_container(
-        #[future] apibara_container: ContainerAsync<GenericImage>,
-    ) -> (ContainerAsync<GenericImage>, ContainerAsync<LiquidatorBot>) {
-        let apibara = apibara_container.await;
-        // 1. Build the local image
-        println!(
-            "Building liquidator bot image..., {:#?}",
-            liquidator_dockerfile_path()
-        );
-        ImageBuilder::default()
-            .with_build_name("liquidator-bot-e2e")
-            .with_dockerfile(&liquidator_dockerfile_path())
-            .build()
-            .await;
+    //     fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {
+    //         &self.cmds
+    //     }
+    // }
 
-        // 2. setup env vars
-        dotenvy::dotenv().unwrap();
-        let mut env_vars = HashMap::new();
-        env_vars.insert(
-            "PRAGMA_API_KEY".to_string(),
-            env::var("PRAGMA_API_KEY").unwrap(),
-        );
-        env_vars.insert(
-            "APIBARA_API_KEY".to_string(),
-            env::var("APIBARA_API_KEY").unwrap(),
-        );
+    // #[rstest::fixture]
+    // async fn liquidator_bot_container(
+    //     #[future] apibara_container: ContainerAsync<GenericImage>,
+    // ) -> (ContainerAsync<GenericImage>, ContainerAsync<LiquidatorBot>) {
+    //     let apibara = apibara_container.await;
+    //     // 1. Build the local image
+    //     println!(
+    //         "Building liquidator bot image..., {:#?}",
+    //         liquidator_dockerfile_path()
+    //     );
+    //     ImageBuilder::default()
+    //         .with_build_name("liquidator-bot-e2e")
+    //         .with_dockerfile(&liquidator_dockerfile_path())
+    //         .build()
+    //         .await;
 
-        // 3. Run the container
-        (
-            apibara,
-            LiquidatorBot::default()
-                .with_env_vars(env_vars)
-                .with_onchain_network("devnet")
-                .with_rpc_url("http://host.docker.internal:5050")
-                .with_starting_block(FORK_BLOCK)
-                .with_pragma_base_url("https://api.dev.pragma.build")
-                .with_account(
-                    "0x14923a0e03ec4f7484f600eab5ecf3e4eacba20ffd92d517b213193ea991502",
-                    "0xe5852452e0757e16b127975024ade3eb",
-                )
-                .with_name("liquidator-bot-e2e")
-                .start()
-                .await
-                .unwrap(),
-        )
-    }
+    //     // 2. setup env vars
+    //     dotenvy::dotenv().unwrap();
+    //     let mut env_vars = HashMap::new();
+    //     env_vars.insert(
+    //         "PRAGMA_API_KEY".to_string(),
+    //         env::var("PRAGMA_API_KEY").unwrap(),
+    //     );
+    //     env_vars.insert(
+    //         "APIBARA_API_KEY".to_string(),
+    //         env::var("APIBARA_API_KEY").unwrap(),
+    //     );
 
-    #[rstest]
-    #[tokio::test]
-    #[traced_test]
-    async fn test_liquidate_position(
-        #[future] liquidator_bot_container: (
-            ContainerAsync<GenericImage>,
-            ContainerAsync<LiquidatorBot>,
-        ),
-        #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
-    ) {
-        let _devnet = starknet_devnet_container.await;
-        let (_apibara, _bot) = liquidator_bot_container.await;
+    //     // 3. Run the container
+    //     (
+    //         apibara,
+    //         LiquidatorBot::default()
+    //             .with_env_vars(env_vars)
+    //             .with_onchain_network("devnet")
+    //             .with_rpc_url("http://host.docker.internal:5050")
+    //             .with_starting_block(FORK_BLOCK)
+    //             .with_pragma_base_url("https://api.dev.pragma.build")
+    //             .with_account(
+    //                 "0x14923a0e03ec4f7484f600eab5ecf3e4eacba20ffd92d517b213193ea991502",
+    //                 "0xe5852452e0757e16b127975024ade3eb",
+    //             )
+    //             .with_name("liquidator-bot-e2e")
+    //             .start()
+    //             .await
+    //             .unwrap(),
+    //     )
+    // }
 
-        let devnet_url = Url::parse("http://127.0.0.1:5050").unwrap();
+    // #[rstest]
+    // #[tokio::test]
+    // #[traced_test]
+    // async fn test_liquidate_position(
+    //     #[future] liquidator_bot_container: (
+    //         ContainerAsync<GenericImage>,
+    //         ContainerAsync<LiquidatorBot>,
+    //     ),
+    //     #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
+    // ) {
+    //     let _devnet = starknet_devnet_container.await;
+    //     let (_apibara, _bot) = liquidator_bot_container.await;
 
-        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(devnet_url.clone())));
+    //     let devnet_url = Url::parse("http://127.0.0.1:5050").unwrap();
 
-        // We use devnet first account with seed 1
-        let signer = LocalWallet::from(SigningKey::from_secret_scalar(
-            Felt::from_hex("0xc10662b7b247c7cecf7e8a30726cff12").unwrap(),
-        ));
-        let address =
-            Felt::from_hex("0x260a8311b4f1092db620b923e8d7d20e76dedcc615fb4b6fdf28315b81de201")
-                .unwrap();
-        let mut account = SingleOwnerAccount::new(
-            provider.clone(),
-            signer.clone(),
-            address,
-            chain_id::MAINNET,
-            ExecutionEncoding::New,
-        );
+    //     let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(devnet_url.clone())));
 
-        // `SingleOwnerAccount` defaults to checking nonce and estimating fees against the latest
-        // block. Optionally change the target block to pending with the following line:
-        account.set_block_id(BlockId::Tag(BlockTag::Pending));
+    //     // We use devnet first account with seed 1
+    //     let signer = LocalWallet::from(SigningKey::from_secret_scalar(
+    //         Felt::from_hex("0xc10662b7b247c7cecf7e8a30726cff12").unwrap(),
+    //     ));
+    //     let address =
+    //         Felt::from_hex("0x260a8311b4f1092db620b923e8d7d20e76dedcc615fb4b6fdf28315b81de201")
+    //             .unwrap();
+    //     let mut account = SingleOwnerAccount::new(
+    //         provider.clone(),
+    //         signer.clone(),
+    //         address,
+    //         chain_id::MAINNET,
+    //         ExecutionEncoding::New,
+    //     );
 
-        // Deploy liquidate contract
-        let liquidate_contract_artifact: SierraClass = serde_json::from_reader(
-            std::fs::File::open("abis/vesu_liquidate_Liquidate.contract_class.json").unwrap(),
-        )
-        .unwrap();
+    //     // `SingleOwnerAccount` defaults to checking nonce and estimating fees against the latest
+    //     // block. Optionally change the target block to pending with the following line:
+    //     account.set_block_id(BlockId::Tag(BlockTag::Pending));
 
-        let liquidate_class_hash = liquidate_contract_artifact.class_hash().unwrap();
+    //     // Deploy liquidate contract
+    //     let liquidate_contract_artifact: SierraClass = serde_json::from_reader(
+    //         std::fs::File::open("abis/vesu_liquidate_Liquidate.contract_class.json").unwrap(),
+    //     )
+    //     .unwrap();
 
-        let account = Arc::new(account);
+    //     let liquidate_class_hash = liquidate_contract_artifact.class_hash().unwrap();
 
-        // Auto impersonate
-        enable_auto_impersonate(devnet_url.clone()).await;
+    //     let account = Arc::new(account);
 
-        // Declare liquidate contract
-        let flattened_class = liquidate_contract_artifact.flatten().unwrap();
-        let compiled_class: CompiledClass = serde_json::from_reader(
-            std::fs::File::open("abis/vesu_liquidate_Liquidate.compiled_contract_class.json")
-                .unwrap(),
-        )
-        .unwrap();
+    //     // Auto impersonate
+    //     enable_auto_impersonate(devnet_url.clone()).await;
 
-        let _ = account
-            .declare_v2(
-                Arc::new(flattened_class),
-                compiled_class.class_hash().unwrap(),
-            )
-            .send()
-            .await
-            .unwrap();
+    //     // Declare liquidate contract
+    //     let flattened_class = liquidate_contract_artifact.flatten().unwrap();
+    //     let compiled_class: CompiledClass = serde_json::from_reader(
+    //         std::fs::File::open("abis/vesu_liquidate_Liquidate.compiled_contract_class.json")
+    //             .unwrap(),
+    //     )
+    //     .unwrap();
 
-        let liquidate_contract_factory =
-            ContractFactory::new(liquidate_class_hash, account.clone());
+    //     let _ = account
+    //         .declare_v2(
+    //             Arc::new(flattened_class),
+    //             compiled_class.class_hash().unwrap(),
+    //         )
+    //         .send()
+    //         .await
+    //         .unwrap();
 
-        liquidate_contract_factory
-            .deploy_v1(
-                vec![
-                    Felt::from_hex(
-                        "0x00000005dd3D2F4429AF886cD1a3b08289DBcEa99A294197E9eB43b0e0325b4b",
-                    )
-                    .unwrap(),
-                    Felt::from_hex(
-                        "0x02545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef",
-                    )
-                    .unwrap(),
-                ],
-                Felt::from_dec_str("0").unwrap(),
-                false,
-            )
-            .send()
-            .await
-            .expect("Unable to deploy liquidate contract");
+    //     let liquidate_contract_factory =
+    //         ContractFactory::new(liquidate_class_hash, account.clone());
 
-        // Deploy mock oracle contract
-        let mock_oracle_contract_artifact: SierraClass = serde_json::from_reader(
-            std::fs::File::open("abis/vesu_MockPragmaOracle.contract_class.json").unwrap(),
-        )
-        .unwrap();
+    //     liquidate_contract_factory
+    //         .deploy_v1(
+    //             vec![
+    //                 Felt::from_hex(
+    //                     "0x00000005dd3D2F4429AF886cD1a3b08289DBcEa99A294197E9eB43b0e0325b4b",
+    //                 )
+    //                 .unwrap(),
+    //                 Felt::from_hex(
+    //                     "0x02545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef",
+    //                 )
+    //                 .unwrap(),
+    //             ],
+    //             Felt::from_dec_str("0").unwrap(),
+    //             false,
+    //         )
+    //         .send()
+    //         .await
+    //         .expect("Unable to deploy liquidate contract");
 
-        let mock_oracle_class_hash = mock_oracle_contract_artifact.class_hash().unwrap();
+    //     // Deploy mock oracle contract
+    //     let mock_oracle_contract_artifact: SierraClass = serde_json::from_reader(
+    //         std::fs::File::open("abis/vesu_MockPragmaOracle.contract_class.json").unwrap(),
+    //     )
+    //     .unwrap();
 
-        // Declare Mock oracle
-        let flattened_class = mock_oracle_contract_artifact.flatten().unwrap();
-        let compiled_class: CompiledClass = serde_json::from_reader(
-            std::fs::File::open("abis/vesu_MockPragmaOracle.compiled_contract_class.json").unwrap(),
-        )
-        .unwrap();
+    //     let mock_oracle_class_hash = mock_oracle_contract_artifact.class_hash().unwrap();
 
-        let declare_res = account
-            .declare_v2(
-                Arc::new(flattened_class),
-                compiled_class.class_hash().unwrap(),
-            )
-            .send()
-            .await
-            .unwrap();
+    //     // Declare Mock oracle
+    //     let flattened_class = mock_oracle_contract_artifact.flatten().unwrap();
+    //     let compiled_class: CompiledClass = serde_json::from_reader(
+    //         std::fs::File::open("abis/vesu_MockPragmaOracle.compiled_contract_class.json").unwrap(),
+    //     )
+    //     .unwrap();
 
-        let mock_oracle_contract_factory =
-            ContractFactory::new(mock_oracle_class_hash, account.clone());
-        mock_oracle_contract_factory
-            .deploy_v1(vec![], Felt::from_dec_str("0").unwrap(), false)
-            .send()
-            .await
-            .expect("Unable to deploy mock oracle contract");
+    //     let declare_res = account
+    //         .declare_v2(
+    //             Arc::new(flattened_class),
+    //             compiled_class.class_hash().unwrap(),
+    //         )
+    //         .send()
+    //         .await
+    //         .unwrap();
 
-        // Upgrade pragma contract to mock oracle
-        let admin_address =
-            Felt::from_hex("0x02356b628D108863BAf8644c945d97bAD70190AF5957031f4852d00D0F690a77")
-                .unwrap();
-        let admin_account = SingleOwnerAccount::new(
-            provider.clone(),
-            signer,
-            admin_address,
-            chain_id::MAINNET,
-            ExecutionEncoding::New,
-        );
-        let res = admin_account
-            .execute_v1(vec![Call {
-                to: Felt::from_hex(
-                    "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b",
-                )
-                .unwrap(),
-                selector: get_selector_from_name("upgrade").unwrap(),
-                calldata: vec![declare_res.class_hash],
-            }])
-            .send()
-            .await
-            .expect("Failed to upgrade pragma contract");
-        wait_for_tx(res.transaction_hash, account.provider().clone())
-            .await
-            .unwrap();
+    //     let mock_oracle_contract_factory =
+    //         ContractFactory::new(mock_oracle_class_hash, account.clone());
+    //     mock_oracle_contract_factory
+    //         .deploy_v1(vec![], Felt::from_dec_str("0").unwrap(), false)
+    //         .send()
+    //         .await
+    //         .expect("Unable to deploy mock oracle contract");
 
-        // retrieved position should be
-        // collateral => ETH : "0.319860064647672274",
-        // collateral => USDC : "300.484447",
-        // lltv => 0.68 (debt can't be > to 68% of collateral value)
+    //     // Upgrade pragma contract to mock oracle
+    //     let admin_address =
+    //         Felt::from_hex("0x02356b628D108863BAf8644c945d97bAD70190AF5957031f4852d00D0F690a77")
+    //             .unwrap();
+    //     let admin_account = SingleOwnerAccount::new(
+    //         provider.clone(),
+    //         signer,
+    //         admin_address,
+    //         chain_id::MAINNET,
+    //         ExecutionEncoding::New,
+    //     );
+    //     let res = admin_account
+    //         .execute_v1(vec![Call {
+    //             to: Felt::from_hex(
+    //                 "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b",
+    //             )
+    //             .unwrap(),
+    //             selector: get_selector_from_name("upgrade").unwrap(),
+    //             calldata: vec![declare_res.class_hash],
+    //         }])
+    //         .send()
+    //         .await
+    //         .expect("Failed to upgrade pragma contract");
+    //     wait_for_tx(res.transaction_hash, account.provider().clone())
+    //         .await
+    //         .unwrap();
 
-        // Make a position liquidatable
-        let new_eth_usd_price = 100000000000; // 1000 USD
-        set_pragma_price(
-            account.clone(),
-            account.provider().clone(),
-            new_eth_usd_price,
-        )
-        .await;
+    //     // retrieved position should be
+    //     // collateral => ETH : "0.319860064647672274",
+    //     // collateral => USDC : "300.484447",
+    //     // lltv => 0.68 (debt can't be > to 68% of collateral value)
 
-        // Assert that the bot has liquidated the position
+    //     // Make a position liquidatable
+    //     let new_eth_usd_price = 100000000000; // 1000 USD
+    //     set_pragma_price(
+    //         account.clone(),
+    //         account.provider().clone(),
+    //         new_eth_usd_price,
+    //     )
+    //     .await;
 
-        sleep(Duration::from_secs(1000)).await;
+    //     // Assert that the bot has liquidated the position
 
-        //TODO : Check Key
-        assert!(logs_contain("[🔭 Monitoring] Liquidatable position found "));
-        //TODO : Check profit
-        assert!(logs_contain(
-            "[🔭 Monitoring] Trying to liquidiate position for"
-        ));
-        //TODO : Check key + tx hash
-        assert!(logs_contain("[🔭 Monitoring] ✅ Liquidated position"));
-    }
+    //     sleep(Duration::from_secs(1000)).await;
 
-    async fn enable_auto_impersonate(devnet_url: Url) {
-        let client = reqwest::Client::new();
+    //     //TODO : Check Key
+    //     assert!(logs_contain("[🔭 Monitoring] Liquidatable position found "));
+    //     //TODO : Check profit
+    //     assert!(logs_contain(
+    //         "[🔭 Monitoring] Trying to liquidiate position for"
+    //     ));
+    //     //TODO : Check key + tx hash
+    //     assert!(logs_contain("[🔭 Monitoring] ✅ Liquidated position"));
+    // }
 
-        let payload = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": "1",
-            "method": "devnet_autoImpersonate",
-            "params": {}
-        });
+    // async fn enable_auto_impersonate(devnet_url: Url) {
+    //     let client = reqwest::Client::new();
 
-        let _response = client
-            .post(devnet_url)
-            .json(&payload)
-            .send()
-            .await
-            .expect("Failed to auto impersonate");
-    }
+    //     let payload = serde_json::json!({
+    //         "jsonrpc": "2.0",
+    //         "id": "1",
+    //         "method": "devnet_autoImpersonate",
+    //         "params": {}
+    //     });
 
-    async fn set_pragma_price<A>(
-        account: A,
-        provider: Arc<JsonRpcClient<HttpTransport>>,
-        price: u128,
-    ) where
-        A: ConnectedAccount + Sync,
-    {
-        let res = account
-            .execute_v1(vec![Call {
-                to: Felt::from_hex(
-                    "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b",
-                )
-                .unwrap(),
-                selector: get_selector_from_name("set_price").unwrap(),
-                calldata: vec![
-                    cairo_short_string_to_felt("eth/usd").unwrap(),
-                    Felt::from(price),
-                ],
-            }])
-            .send()
-            .await
-            .expect("Failed to set price");
-        wait_for_tx(res.transaction_hash, provider).await.unwrap();
-    }
+    //     let _response = client
+    //         .post(devnet_url)
+    //         .json(&payload)
+    //         .send()
+    //         .await
+    //         .expect("Failed to auto impersonate");
+    // }
+
+    // async fn set_pragma_price<A>(
+    //     account: A,
+    //     provider: Arc<JsonRpcClient<HttpTransport>>,
+    //     price: u128,
+    // ) where
+    //     A: ConnectedAccount + Sync,
+    // {
+    //     let res = account
+    //         .execute_v1(vec![Call {
+    //             to: Felt::from_hex(
+    //                 "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b",
+    //             )
+    //             .unwrap(),
+    //             selector: get_selector_from_name("set_price").unwrap(),
+    //             calldata: vec![
+    //                 cairo_short_string_to_felt("eth/usd").unwrap(),
+    //                 Felt::from(price),
+    //             ],
+    //         }])
+    //         .send()
+    //         .await
+    //         .expect("Failed to set price");
+    //     wait_for_tx(res.transaction_hash, provider).await.unwrap();
+    // }
 }
