@@ -468,6 +468,4 @@ mod tests {
         assert_eq!(amount_as_collateral, BigDecimal::new(BigInt::from(306), 3));
         // 0,306 with 1ETH = 1000
     }
-
-    
 }
