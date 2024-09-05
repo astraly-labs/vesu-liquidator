@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Ok, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
@@ -19,7 +19,7 @@ use tokio::sync::RwLock;
 
 use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
 
-use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
+use crate::config::{Config, LiquidationMode, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::apply_overhead;
@@ -120,6 +120,7 @@ impl Position {
     /// (not accounting for price impact/slippage from swapping)
     pub async fn liquidable_amount(
         &self,
+        liquidation_mode: LiquidationMode,
         oracle_prices: &LatestOraclePrices,
     ) -> Result<(BigDecimal, BigDecimal)> {
         let prices = oracle_prices.0.lock().await;
@@ -133,11 +134,17 @@ impl Position {
             .clone();
         drop(prices);
 
+        
+
         let collateral_factor = self.lltv.clone();
         let total_collateral_value_in_usd =
             self.collateral.amount.clone() * collateral_dollar_price.clone();
+        if liquidation_mode.as_bool() {
+            let total_collateral_value_in_usd = apply_overhead(total_collateral_value_in_usd);
+            return Ok((total_collateral_value_in_usd.clone() / debt_dollar_price ,total_collateral_value_in_usd.clone() / collateral_dollar_price ));
+        }
         let current_debt_in_usd = self.debt.amount.clone() * debt_dollar_price.clone();
-        let maximum_health_factor = BigDecimal::new(BigInt::from(999), 3);
+        let maximum_health_factor = BigDecimal::new(BigInt::from(1001), 3);
 
         let liquidation_amount_in_usd = ((collateral_factor.clone()
             * total_collateral_value_in_usd)
@@ -394,14 +401,14 @@ mod tests {
     use testcontainers::{ContainerAsync, GenericImage, ImageExt};
     use tracing_test::traced_test;
 
-    use crate::{cli::NetworkName, config::Config, services::oracle::LatestOraclePrices, types::{asset::Asset, position::Position}, utils::{
+    use crate::{cli::NetworkName, config::{Config, LiquidationMode}, services::oracle::LatestOraclePrices, types::{asset::Asset, position::Position}, utils::{
         test_utils::{liquidator_dockerfile_path, ImageBuilder},
         wait_for_tx,
     }};
 
     #[tokio::test]
     async fn test_liquidable(){
-        let config = Config::new(NetworkName::Mainnet, &PathBuf::from("./config.yaml")).unwrap();
+        let config = Config::new(NetworkName::Mainnet,LiquidationMode::FullLiquidation, &PathBuf::from("./config.yaml")).unwrap();
         let mut eth = Asset::from_address(&config, Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap();
         eth.amount = BigDecimal::new(BigInt::from(3),1);
         let mut usdc = Asset::from_address(&config, Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8").unwrap()).unwrap();
@@ -433,10 +440,10 @@ mod tests {
         assert_eq!(position.is_liquidable(&last_oracle_price).await, true);
         // changing price to test a non liquidable position
 
-        let (amount_as_debt, amount_as_collateral) = position.liquidable_amount(&last_oracle_price).await.unwrap();
+        let (amount_as_debt, amount_as_collateral) = position.liquidable_amount(LiquidationMode::FullLiquidation, &last_oracle_price).await.unwrap();
         // should be 300 $ with 2% overhead => 306
         assert_eq!(amount_as_debt, BigDecimal::from(306)); // 306 USDC with 1 USDC = 1$
-        assert_eq!(amount_as_collateral, BigDecimal::new(BigInt::from(306),3).with_scale(amount_as_collateral.as_bigint_and_exponent().1)); // 0,306 with 1ETH = 1000
+        assert_eq!(amount_as_collateral, BigDecimal::new(BigInt::from(306),3)); // 0,306 with 1ETH = 1000
             
     }
 

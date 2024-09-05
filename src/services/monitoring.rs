@@ -135,7 +135,7 @@ impl MonitoringService {
     /// and the transactions needed to liquidate the position.
     async fn compute_profitability(&self, position: &Position) -> Result<(BigDecimal, Vec<Call>)> {
         let (liquidable_amount_as_debt_asset, liquidable_amount_as_collateral_asset) = position
-            .liquidable_amount(&self.latest_oracle_prices)
+            .liquidable_amount(self.config.liquidation_mode,&self.latest_oracle_prices)
             .await?;
 
         let liquidation_factor = position

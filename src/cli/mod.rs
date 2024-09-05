@@ -8,6 +8,8 @@ use strum::Display;
 
 use account::AccountParams;
 
+use crate::config::LiquidationMode;
+
 fn parse_url(s: &str) -> Result<Url> {
     s.parse()
         .map_err(|_| anyhow!("Could not convert {s} to Url"))
@@ -50,6 +52,10 @@ pub struct RunCmd {
     /// Pragma API Key for indexing.
     #[clap(long, value_name = "PRAGMA API KEY")]
     pub pragma_api_key: Option<String>,
+
+    /// Configuration file path.
+    #[clap(long, value_enum, default_value_t = LiquidationMode::FullLiquidation, value_name = "LIQUIDATION MODE")]
+    pub liquidation_mode: LiquidationMode,
 }
 
 /// First blocks with Vesu activity. Not necessary to index before.
