@@ -75,7 +75,7 @@ impl RunCmd {
             return Err(anyhow!("Pragma API Key or Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."));
         }
         if self.liquidation_mode == LiquidationMode::Partial {
-            tracing::warn!("Partial Liquidation is not handled by Liquidate contract yet. Switch mode to Full.");
+            tracing::warn!("Partial Liquidation is not handled by Liquidate contract yet. Switching to full liquidation mode.");
             self.liquidation_mode = LiquidationMode::Full;
         }
 
