@@ -35,7 +35,7 @@ pub async fn start_all_services(
 
     // TODO: Add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
     let mut storage = JsonStorage::new(
-        &run_cmd
+        run_cmd
             .storage_path
             .unwrap_or_default()
             .as_path()

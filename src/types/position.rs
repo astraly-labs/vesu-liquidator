@@ -460,7 +460,7 @@ mod tests {
             BigDecimal::new(BigInt::from(5), 1)
         );
         // Test is not liquidatable
-        assert_eq!(position.is_liquidable(&last_oracle_price).await, false);
+        assert!(!(position.is_liquidable(&last_oracle_price).await));
         // changing price to test a non liquidable position
         {
             last_oracle_price
@@ -475,7 +475,7 @@ mod tests {
             BigDecimal::from(1)
         );
         //check that its liquidatable
-        assert_eq!(position.is_liquidable(&last_oracle_price).await, true);
+        assert!(position.is_liquidable(&last_oracle_price).await);
         // changing price to test a non liquidable position
 
         let (amount_as_debt, amount_as_collateral) = position
