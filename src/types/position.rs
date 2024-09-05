@@ -257,6 +257,7 @@ impl Position {
 
     /// Returns the TX necessary to liquidate this position (approve + liquidate).
     // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
+    #[allow(unused)]
     pub async fn get_liquidation_txs(
         &self,
         account: &StarknetAccount,
@@ -265,6 +266,11 @@ impl Position {
         minimum_collateral_to_retrieve: BigDecimal,
         profit_estimated: BigDecimal,
     ) -> Result<Vec<Call>> {
+        // TODO: remove those line when vesu contract allow partial liquidation
+        // Setting those value to 0 because vesu Liquidate contract required amount = 0 for both swap
+        let amount_to_liquidate = BigDecimal::from(0);
+        let profit_estimated = BigDecimal::from(0);
+
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
