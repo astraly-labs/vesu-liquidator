@@ -375,42 +375,17 @@ impl fmt::Display for Position {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, env, path::PathBuf, sync::Arc, time::Duration};
+    use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
     use bigdecimal::{num_bigint::BigInt, BigDecimal};
-    use starknet::{
-        accounts::{Account, Call, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount},
-        contract::ContractFactory,
-        core::{
-            chain_id,
-            types::{
-                contract::{CompiledClass, SierraClass},
-                BlockId, BlockTag, Felt,
-            },
-            utils::{cairo_short_string_to_felt, get_selector_from_name},
-        },
-        providers::{jsonrpc::HttpTransport, JsonRpcClient},
-        signers::{LocalWallet, SigningKey},
-    };
-    use tokio::{sync::Mutex, time::sleep};
-    use url::Url;
-
-    use rstest::*;
-    use testcontainers::core::{wait::WaitFor, Mount};
-    use testcontainers::runners::AsyncRunner;
-    use testcontainers::Image;
-    use testcontainers::{ContainerAsync, GenericImage, ImageExt};
-    use tracing_test::traced_test;
+    use starknet::core::types::Felt;
+    use tokio::sync::Mutex;
 
     use crate::{
         cli::NetworkName,
         config::{Config, LiquidationMode},
         services::oracle::LatestOraclePrices,
         types::{asset::Asset, position::Position},
-        utils::{
-            test_utils::{liquidator_dockerfile_path, ImageBuilder},
-            wait_for_tx,
-        },
     };
 
     #[tokio::test]
@@ -488,9 +463,8 @@ mod tests {
         // 0,306 with 1ETH = 1000
     }
 
-
     // TODO: finish and fix this e2e test
-     
+
     // const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
     // const DEVNET_IMAGE_TAG: &str = "0.1.2";
     // const DEVNET_PORT: u16 = 5050;
