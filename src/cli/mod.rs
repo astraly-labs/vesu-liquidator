@@ -74,6 +74,9 @@ impl RunCmd {
         if self.pragma_api_key.is_none() || self.apibara_api_key.is_none() {
             return Err(anyhow!("Pragma API Key or Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."));
         }
+        if self.liquidation_mode == LiquidationMode::Partial {
+            tracing::warn!("Partial Liquidation is not handled by Liquidate contract yet. Please switch to Full.");
+        }
 
         match self.network {
             NetworkName::Mainnet => {
@@ -81,14 +84,15 @@ impl RunCmd {
                     self.starting_block = FIRST_MAINNET_BLOCK;
                 }
             }
-            NetworkName::Devnet => {
-                if self.starting_block <= FIRST_MAINNET_BLOCK {
-                    self.starting_block = FIRST_MAINNET_BLOCK;
-                }
-            }
             NetworkName::Sepolia => {
                 if self.starting_block <= FIRST_SEPOLIA_BLOCK {
                     self.starting_block = FIRST_SEPOLIA_BLOCK;
+                }
+            }
+            #[cfg(feature = "testing")]
+            NetworkName::Devnet => {
+                if self.starting_block <= FIRST_MAINNET_BLOCK {
+                    self.starting_block = FIRST_MAINNET_BLOCK;
                 }
             }
         }
@@ -106,6 +110,7 @@ pub enum NetworkName {
     #[value(alias("sepolia"))]
     Sepolia,
     #[strum(serialize = "Devnet")]
+    #[cfg(feature = "testing")]
     #[value(alias("devnet"))]
     Devnet,
 }

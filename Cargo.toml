@@ -44,3 +44,6 @@ cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.3.1", fea
 rstest = "0.18.2"
 testcontainers = { version = "0.21.1" }
 tracing-test = "0.2.5"
+
+[features]
+testing = []

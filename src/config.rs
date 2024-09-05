@@ -70,6 +70,7 @@ impl Config {
         let network_config = match network {
             NetworkName::Mainnet => &raw_config.vesu.mainnet,
             NetworkName::Sepolia => &raw_config.vesu.sepolia,
+            #[cfg(feature = "testing")]
             NetworkName::Devnet => &raw_config.vesu.mainnet,
         };
 
@@ -84,6 +85,7 @@ impl Config {
                 let address = match network {
                     NetworkName::Mainnet => Felt::from_hex(&asset.mainnet_address),
                     NetworkName::Sepolia => Felt::from_hex(&asset.sepolia_address),
+                    #[cfg(feature = "testing")]
                     NetworkName::Devnet => Felt::from_hex(&asset.mainnet_address),
                 };
                 address.ok().map(|addr| (addr, asset.clone()))

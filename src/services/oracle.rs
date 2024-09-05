@@ -31,6 +31,7 @@ impl OracleService {
         let network_to_fetch = match network {
             NetworkName::Sepolia => "sepolia",
             NetworkName::Mainnet => "mainnet",
+            #[cfg(feature = "testing")]
             NetworkName::Devnet => "mainnet",
         };
         let oracle = PragmaOracle::new(api_url, api_key, network_to_fetch.to_string());
