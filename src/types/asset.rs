@@ -48,7 +48,7 @@ mod tests {
     fn test_asset_from_address() {
         let config = Config::new(
             NetworkName::Mainnet,
-            crate::config::LiquidationMode::FullLiquidation,
+            crate::config::LiquidationMode::Full,
             &PathBuf::from("./config.yaml"),
         )
         .unwrap();

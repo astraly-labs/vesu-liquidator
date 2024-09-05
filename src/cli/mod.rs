@@ -54,7 +54,7 @@ pub struct RunCmd {
     pub pragma_api_key: Option<String>,
 
     /// Configuration file path.
-    #[clap(long, value_enum, default_value_t = LiquidationMode::FullLiquidation, value_name = "LIQUIDATION MODE")]
+    #[clap(long, value_enum, default_value_t = LiquidationMode::Full, value_name = "LIQUIDATION MODE")]
     pub liquidation_mode: LiquidationMode,
 }
 

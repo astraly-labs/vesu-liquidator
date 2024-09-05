@@ -24,15 +24,15 @@ lazy_static! {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum LiquidationMode {
-    FullLiquidation,
-    PartialLiquidation,
+    Full,
+    Partial,
 }
 
 impl LiquidationMode {
     pub fn as_bool(&self) -> bool {
         match self {
-            LiquidationMode::FullLiquidation => true,
-            LiquidationMode::PartialLiquidation => false,
+            LiquidationMode::Full => true,
+            LiquidationMode::Partial => false,
         }
     }
 }

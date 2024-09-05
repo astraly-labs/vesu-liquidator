@@ -398,7 +398,7 @@ mod tests {
     async fn test_liquidable() {
         let config = Config::new(
             NetworkName::Mainnet,
-            LiquidationMode::FullLiquidation,
+            LiquidationMode::Full,
             &PathBuf::from("./config.yaml"),
         )
         .unwrap();
@@ -460,7 +460,7 @@ mod tests {
         // changing price to test a non liquidable position
 
         let (amount_as_debt, amount_as_collateral) = position
-            .liquidable_amount(LiquidationMode::FullLiquidation, &last_oracle_price)
+            .liquidable_amount(LiquidationMode::Full, &last_oracle_price)
             .await
             .unwrap();
         // should be 300 $ with 2% overhead => 306
