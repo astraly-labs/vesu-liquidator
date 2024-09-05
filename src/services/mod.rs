@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use crate::{
-    cli::RunCmd,
+    cli::{NetworkName, RunCmd},
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
     storages::{json::JsonStorage, Storage},
@@ -34,11 +34,19 @@ pub async fn start_all_services(
     let (positions_sender, position_receiver) = mpsc::channel::<(u64, Position)>(1024);
 
     // TODO: Add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
-    let mut storage = JsonStorage::new("data.json");
+    let mut storage = JsonStorage::new(
+        run_cmd
+            .storage_path
+            .unwrap_or_default()
+            .as_path()
+            .to_str()
+            .unwrap_or_default(),
+    );
     let (last_block_indexed, _) = storage.load().await?;
 
     // TODO: Add force start from staring block in cli
     let starting_block = cmp::max(run_cmd.starting_block, last_block_indexed);
+    println!("  🥡 Starting from block {}\n\n", starting_block);
 
     tracing::info!("🧩 Starting the indexer service...");
     let indexer_handle = start_indexer_service(
@@ -55,6 +63,7 @@ pub async fn start_all_services(
         run_cmd.pragma_api_base_url,
         run_cmd.pragma_api_key.unwrap(),
         latest_oracle_prices.clone(),
+        run_cmd.network,
     );
 
     tracing::info!("⏳ Waiting a few moment for the indexer to fetch positions...\n");
@@ -110,9 +119,14 @@ fn start_oracle_service(
     pragma_api_base_url: Url,
     pragma_api_key: String,
     latest_oracle_prices: LatestOraclePrices,
+    network: NetworkName,
 ) -> JoinHandle<Result<()>> {
-    let oracle_service =
-        OracleService::new(pragma_api_base_url, pragma_api_key, latest_oracle_prices);
+    let oracle_service = OracleService::new(
+        pragma_api_base_url,
+        pragma_api_key,
+        latest_oracle_prices,
+        network,
+    );
 
     tokio::spawn(async move {
         oracle_service

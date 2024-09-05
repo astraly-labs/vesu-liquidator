@@ -8,6 +8,8 @@ use strum::Display;
 
 use account::AccountParams;
 
+use crate::config::LiquidationMode;
+
 fn parse_url(s: &str) -> Result<Url> {
     s.parse()
         .map_err(|_| anyhow!("Could not convert {s} to Url"))
@@ -31,6 +33,10 @@ pub struct RunCmd {
     #[clap(long, default_value = "config.yaml", value_name = "VESU CONFIG PATH")]
     pub config_path: Option<PathBuf>,
 
+    /// Configuration file path.
+    #[clap(long, default_value = "data.json", value_name = "STORAGE PATH")]
+    pub storage_path: Option<PathBuf>,
+
     /// The block you want to start syncing from.
     #[clap(long, short, value_name = "BLOCK NUMBER")]
     pub starting_block: u64,
@@ -46,6 +52,10 @@ pub struct RunCmd {
     /// Pragma API Key for indexing.
     #[clap(long, value_name = "PRAGMA API KEY")]
     pub pragma_api_key: Option<String>,
+
+    /// Configuration file path.
+    #[clap(long, value_enum, default_value_t = LiquidationMode::Full, value_name = "LIQUIDATION MODE")]
+    pub liquidation_mode: LiquidationMode,
 }
 
 /// First blocks with Vesu activity. Not necessary to index before.
@@ -64,6 +74,10 @@ impl RunCmd {
         if self.pragma_api_key.is_none() || self.apibara_api_key.is_none() {
             return Err(anyhow!("Pragma API Key or Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."));
         }
+        if self.liquidation_mode == LiquidationMode::Partial {
+            tracing::warn!("Partial Liquidation is not handled by Liquidate contract yet. Switching to full liquidation mode.");
+            self.liquidation_mode = LiquidationMode::Full;
+        }
 
         match self.network {
             NetworkName::Mainnet => {
@@ -74,6 +88,12 @@ impl RunCmd {
             NetworkName::Sepolia => {
                 if self.starting_block <= FIRST_SEPOLIA_BLOCK {
                     self.starting_block = FIRST_SEPOLIA_BLOCK;
+                }
+            }
+            #[cfg(feature = "testing")]
+            NetworkName::Devnet => {
+                if self.starting_block <= FIRST_MAINNET_BLOCK {
+                    self.starting_block = FIRST_MAINNET_BLOCK;
                 }
             }
         }
@@ -90,4 +110,8 @@ pub enum NetworkName {
     #[strum(serialize = "Sepolia")]
     #[value(alias("sepolia"))]
     Sepolia,
+    #[strum(serialize = "Devnet")]
+    #[cfg(feature = "testing")]
+    #[value(alias("devnet"))]
+    Devnet,
 }

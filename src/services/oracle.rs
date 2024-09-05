@@ -10,6 +10,7 @@ use strum::Display;
 use tokio::sync::Mutex;
 use url::Url;
 
+use crate::cli::NetworkName;
 use crate::{config::Config, utils::conversions::hex_str_to_big_decimal};
 
 const USD_ASSET: &str = "usd";
@@ -21,8 +22,19 @@ pub struct OracleService {
 }
 
 impl OracleService {
-    pub fn new(api_url: Url, api_key: String, latest_prices: LatestOraclePrices) -> Self {
-        let oracle = PragmaOracle::new(api_url, api_key);
+    pub fn new(
+        api_url: Url,
+        api_key: String,
+        latest_prices: LatestOraclePrices,
+        network: NetworkName,
+    ) -> Self {
+        let network_to_fetch = match network {
+            NetworkName::Sepolia => "sepolia",
+            NetworkName::Mainnet => "mainnet",
+            #[cfg(feature = "testing")]
+            NetworkName::Devnet => "mainnet",
+        };
+        let oracle = PragmaOracle::new(api_url, api_key, network_to_fetch.to_string());
         Self {
             oracle,
             latest_prices,
@@ -93,16 +105,18 @@ pub struct PragmaOracle {
     api_key: String,
     aggregation_method: AggregationMethod,
     interval: Interval,
+    network: String,
 }
 
 impl PragmaOracle {
-    pub fn new(api_url: Url, api_key: String) -> Self {
+    pub fn new(api_url: Url, api_key: String, network: String) -> Self {
         Self {
             http_client: reqwest::Client::new(),
             api_url,
             api_key,
             aggregation_method: AggregationMethod::Median,
             interval: Interval::OneMinute,
+            network,
         }
     }
 }
@@ -132,8 +146,8 @@ impl PragmaOracle {
 
     fn fetch_price_url(&self, base: String, quote: String) -> String {
         format!(
-            "{}node/v1/onchain/{}/{}?network=sepolia&components=false&variations=false&interval={}&aggregation={}",
-            self.api_url, base, quote, self.interval, self.aggregation_method
+            "{}node/v1/onchain/{}/{}?network={}&components=false&variations=false&interval={}&aggregation={}",
+            self.api_url, base, quote,self.network, self.interval, self.aggregation_method
         )
     }
 }

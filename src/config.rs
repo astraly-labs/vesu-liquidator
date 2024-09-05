@@ -2,6 +2,7 @@ use std::fs;
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
+use clap::ValueEnum;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::Felt;
@@ -21,6 +22,21 @@ lazy_static! {
         get_selector_from_name("liquidation_config").unwrap();
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum LiquidationMode {
+    Full,
+    Partial,
+}
+
+impl LiquidationMode {
+    pub fn as_bool(&self) -> bool {
+        match self {
+            LiquidationMode::Full => true,
+            LiquidationMode::Partial => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub network: NetworkName,
@@ -29,17 +45,23 @@ pub struct Config {
     pub liquidate_address: Felt,
     pub assets: Vec<Asset>,
     pub asset_map: HashMap<Felt, Asset>,
+    pub liquidation_mode: LiquidationMode,
 }
 
 impl Config {
     pub fn from_cli(run_cmd: &RunCmd) -> Result<Self> {
         let config_path = run_cmd.config_path.clone().unwrap_or_default();
         let network = run_cmd.network;
+        let liquidation_mode = run_cmd.liquidation_mode;
 
-        Self::new(network, &config_path)
+        Self::new(network, liquidation_mode, &config_path)
     }
 
-    pub fn new(network: NetworkName, config_path: &PathBuf) -> Result<Self> {
+    pub fn new(
+        network: NetworkName,
+        liquidation_mode: LiquidationMode,
+        config_path: &PathBuf,
+    ) -> Result<Self> {
         let raw_config: RawConfig = {
             let config_str = fs::read_to_string(config_path)?;
             serde_yaml::from_str(&config_str)?
@@ -48,6 +70,8 @@ impl Config {
         let network_config = match network {
             NetworkName::Mainnet => &raw_config.vesu.mainnet,
             NetworkName::Sepolia => &raw_config.vesu.sepolia,
+            #[cfg(feature = "testing")]
+            NetworkName::Devnet => &raw_config.vesu.mainnet,
         };
 
         let singleton_address = Felt::from_hex(&network_config.singleton_address)?;
@@ -61,6 +85,8 @@ impl Config {
                 let address = match network {
                     NetworkName::Mainnet => Felt::from_hex(&asset.mainnet_address),
                     NetworkName::Sepolia => Felt::from_hex(&asset.sepolia_address),
+                    #[cfg(feature = "testing")]
+                    NetworkName::Devnet => Felt::from_hex(&asset.mainnet_address),
                 };
                 address.ok().map(|addr| (addr, asset.clone()))
             })
@@ -73,6 +99,7 @@ impl Config {
             liquidate_address,
             assets,
             asset_map,
+            liquidation_mode,
         };
 
         Ok(config)

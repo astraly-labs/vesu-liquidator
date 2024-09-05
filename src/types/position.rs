@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Ok, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
@@ -19,7 +19,7 @@ use tokio::sync::RwLock;
 
 use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
 
-use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
+use crate::config::{Config, LiquidationMode, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::apply_overhead;
@@ -120,6 +120,7 @@ impl Position {
     /// (not accounting for price impact/slippage from swapping)
     pub async fn liquidable_amount(
         &self,
+        liquidation_mode: LiquidationMode,
         oracle_prices: &LatestOraclePrices,
     ) -> Result<(BigDecimal, BigDecimal)> {
         let prices = oracle_prices.0.lock().await;
@@ -136,8 +137,15 @@ impl Position {
         let collateral_factor = self.lltv.clone();
         let total_collateral_value_in_usd =
             self.collateral.amount.clone() * collateral_dollar_price.clone();
+        if liquidation_mode == LiquidationMode::Full {
+            let total_collateral_value_in_usd = apply_overhead(total_collateral_value_in_usd);
+            return Ok((
+                total_collateral_value_in_usd.clone() / debt_dollar_price,
+                total_collateral_value_in_usd.clone() / collateral_dollar_price,
+            ));
+        }
         let current_debt_in_usd = self.debt.amount.clone() * debt_dollar_price.clone();
-        let maximum_health_factor = BigDecimal::new(BigInt::from(999), 3);
+        let maximum_health_factor = BigDecimal::new(BigInt::from(1001), 3);
 
         let liquidation_amount_in_usd = ((collateral_factor.clone()
             * total_collateral_value_in_usd)
@@ -249,6 +257,7 @@ impl Position {
 
     /// Returns the TX necessary to liquidate this position (approve + liquidate).
     // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
+    #[allow(unused)]
     pub async fn get_liquidation_txs(
         &self,
         account: &StarknetAccount,
@@ -257,6 +266,11 @@ impl Position {
         minimum_collateral_to_retrieve: BigDecimal,
         profit_estimated: BigDecimal,
     ) -> Result<Vec<Call>> {
+        // TODO: remove those line when vesu contract allow partial liquidation
+        // Setting those value to 0 because vesu Liquidate contract required amount = 0 for both swap
+        let amount_to_liquidate = BigDecimal::from(0);
+        let profit_estimated = BigDecimal::from(0);
+
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
@@ -344,7 +358,6 @@ impl Position {
             min_collateral_to_receive: cainome::cairo_serde::U256::from_bytes_be(
                 &min_col_to_retrieve,
             ),
-            full_liquidation: false,
             liquidate_swap,
             withdraw_swap,
         };
@@ -368,132 +381,91 @@ impl fmt::Display for Position {
 #[cfg(test)]
 mod tests {
 
-    use starknet::{
-        accounts::{ExecutionEncoding, SingleOwnerAccount},
-        contract::ContractFactory,
-        core::{
-            chain_id,
-            types::{contract::SierraClass, BlockId, BlockTag, Felt},
-        },
-        providers::{jsonrpc::HttpTransport, JsonRpcClient},
-        signers::{LocalWallet, SigningKey},
+    use std::{collections::HashMap, path::PathBuf, sync::Arc};
+
+    use bigdecimal::{num_bigint::BigInt, BigDecimal};
+    use starknet::core::types::Felt;
+    use tokio::sync::Mutex;
+
+    use crate::{
+        cli::NetworkName,
+        config::{Config, LiquidationMode},
+        services::oracle::LatestOraclePrices,
+        types::{asset::Asset, position::Position},
     };
-    // use std::collections::HashMap;
-    use url::Url;
 
-    use rstest::*;
-    use testcontainers::core::wait::WaitFor;
-    use testcontainers::runners::AsyncRunner;
-    // use testcontainers::Image;
-    use testcontainers::{ContainerAsync, GenericImage, ImageExt};
-
-    // use crate::utils::test_utils::{liquidator_dockerfile_path, ImageBuilder};
-
-    const DEVNET_IMAGE: &str = "shardlabs/starknet-devnet-rs";
-    const DEVNET_IMAGE_TAG: &str = "latest";
-    const DEVNET_PORT: u16 = 5050;
-
-    #[rstest::fixture]
-    async fn starknet_devnet_container() -> ContainerAsync<GenericImage> {
-        GenericImage::new(DEVNET_IMAGE, DEVNET_IMAGE_TAG)
-            .with_wait_for(WaitFor::message_on_stdout("Starknet Devnet listening"))
-            .with_exposed_port(DEVNET_PORT.into())
-            .with_mapped_port(DEVNET_PORT, DEVNET_PORT.into())
-            .with_cmd(vec![
-                "--fork-network=https://starknet-mainnet.public.blastapi.io/rpc/v0_7",
-                "--seed=1",
-            ])
-            .start()
-            .await
-            .expect("Failed to start devnet")
-    }
-
-    // #[derive(Debug, Clone)]
-    // struct LiquidatorBot {
-    //     env_vars: HashMap<String, String>,
-    //     cmds: Vec<String>,
-    // }
-
-    // impl LiquidatorBot {
-    //     fn with_account_address()
-    // }
-
-    // impl Image for LiquidatorBot {
-
-    // }
-
-    // #[rstest::fixture]
-    // async fn liquidator_bot() -> ContainerAsync<GenericImage> {
-    //     // 1. Build the local image
-    //     ImageBuilder::default()
-    //         .with_build_name("liquidator-bot-e2e")
-    //         .with_dockerfile(&liquidator_dockerfile_path())
-    //         .build()
-    //         .await;
-
-    //     // 2. Run the container
-    //     LiquidatorBot::default()
-    //         .with_container_name("liquidator-bot-container")
-    //         .start()
-    //         .await
-    //         .unwrap()
-    // }
-
-    #[rstest]
     #[tokio::test]
-    async fn test_liquidate_position(
-        #[future] starknet_devnet_container: ContainerAsync<GenericImage>,
-    ) {
-        let _devnet = starknet_devnet_container.await;
-
-        let contract_artifact: SierraClass = serde_json::from_reader(
-            std::fs::File::open("abis/vesu_liquidate_Liquidate.contract_class.json").unwrap(),
+    async fn test_liquidable() {
+        let config = Config::new(
+            NetworkName::Mainnet,
+            LiquidationMode::Full,
+            &PathBuf::from("./config.yaml"),
         )
         .unwrap();
-        let class_hash = contract_artifact.class_hash().unwrap();
-
-        let provider = JsonRpcClient::new(HttpTransport::new(
-            Url::parse("http://127.0.0.1:5050").unwrap(),
-        ));
-
-        // We use devnet first account with seed 1
-        let signer = LocalWallet::from(SigningKey::from_secret_scalar(
-            Felt::from_hex("0xc10662b7b247c7cecf7e8a30726cff12").unwrap(),
-        ));
-        let address =
-            Felt::from_hex("0x260a8311b4f1092db620b923e8d7d20e76dedcc615fb4b6fdf28315b81de201")
-                .unwrap();
-        let mut account = SingleOwnerAccount::new(
-            provider,
-            signer,
-            address,
-            chain_id::MAINNET,
-            ExecutionEncoding::New,
-        );
-
-        // `SingleOwnerAccount` defaults to checking nonce and estimating fees against the latest
-        // block. Optionally change the target block to pending with the following line:
-        account.set_block_id(BlockId::Tag(BlockTag::Pending));
-
-        let contract_factory = ContractFactory::new(class_hash, account);
-        contract_factory
-            .deploy_v1(
-                vec![
-                    Felt::from_hex(
-                        "0x00000005dd3D2F4429AF886cD1a3b08289DBcEa99A294197E9eB43b0e0325b4b",
-                    )
-                    .unwrap(),
-                    Felt::ZERO,
-                ],
-                Felt::from_dec_str("0").unwrap(),
-                false,
+        let mut eth = Asset::from_address(
+            &config,
+            Felt::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+                .unwrap(),
+        )
+        .unwrap();
+        eth.amount = BigDecimal::new(BigInt::from(3), 1);
+        let mut usdc = Asset::from_address(
+            &config,
+            Felt::from_hex("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8")
+                .unwrap(),
+        )
+        .unwrap();
+        usdc.amount = BigDecimal::new(BigInt::from(300), 0);
+        let position = Position {
+            user_address: Felt::from_hex(
+                "0x14923a0e03ec4f7484f600eab5ecf3e4eacba20ffd92d517b213193ea991502",
             )
-            .send()
+            .unwrap(),
+            pool_id: Felt::from_hex(
+                "0x4dc4f0ca6ea4961e4c8373265bfd5317678f4fe374d76f3fd7135f57763bf28",
+            )
+            .unwrap(),
+            collateral: eth, //ETH
+            debt: usdc,
+            lltv: BigDecimal::new(BigInt::from(68), 2),
+        };
+
+        let mut oracle_price: HashMap<String, BigDecimal> = HashMap::new();
+        oracle_price.insert("eth".to_string(), BigDecimal::new(BigInt::from(2000), 0));
+        oracle_price.insert("usdc".to_string(), BigDecimal::new(BigInt::from(1), 0));
+
+        let last_oracle_price = LatestOraclePrices(Arc::new(Mutex::new(oracle_price)));
+        // Test Ltv computation
+        assert_eq!(
+            position.ltv(&last_oracle_price).await.unwrap(),
+            BigDecimal::new(BigInt::from(5), 1)
+        );
+        // Test is not liquidatable
+        assert!(!(position.is_liquidable(&last_oracle_price).await));
+        // changing price to test a non liquidable position
+        {
+            last_oracle_price
+                .0
+                .lock()
+                .await
+                .insert("eth".to_string(), BigDecimal::new(BigInt::from(1000), 0));
+        }
+        //check new ltv
+        assert_eq!(
+            position.ltv(&last_oracle_price).await.unwrap(),
+            BigDecimal::from(1)
+        );
+        //check that its liquidatable
+        assert!(position.is_liquidable(&last_oracle_price).await);
+        // changing price to test a non liquidable position
+
+        let (amount_as_debt, amount_as_collateral) = position
+            .liquidable_amount(LiquidationMode::Full, &last_oracle_price)
             .await
-            .expect("Unable to deploy contract");
-
-        // Make a position liquidable
-
-        // Assert that the bot has liquidated the position
+            .unwrap();
+        // should be 300 $ with 2% overhead => 306
+        assert_eq!(amount_as_debt, BigDecimal::from(306)); // 306 USDC with 1 USDC = 1$
+        assert_eq!(amount_as_collateral, BigDecimal::new(BigInt::from(306), 3));
+        // 0,306 with 1ETH = 1000
     }
 }

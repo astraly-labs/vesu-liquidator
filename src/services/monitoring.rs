@@ -5,8 +5,8 @@ use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use starknet::{
     accounts::Call,
-    core::types::{Felt, TransactionFinalityStatus},
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
+    core::types::Felt,
+    providers::{jsonrpc::HttpTransport, JsonRpcClient},
 };
 use tokio::sync::mpsc::Receiver;
 use tokio::time::interval;
@@ -19,11 +19,10 @@ use crate::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
     },
+    utils::wait_for_tx,
 };
 
 const CHECK_POSITIONS_INTERVAL: u64 = 10;
-const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
-const INTERVAL_CHECK_TX_FINALITY: u64 = 3;
 
 pub struct MonitoringService {
     config: Config,
@@ -93,6 +92,10 @@ impl MonitoringService {
         tracing::info!("[🔭 Monitoring] Checking if any position is liquidable...");
         for (_, position) in monitored_positions.iter() {
             if position.is_liquidable(&self.latest_oracle_prices).await {
+                tracing::info!(
+                    "[🔭 Monitoring] Liquidatable position found #{}!",
+                    position.key()
+                );
                 let _profit_made = self.try_to_liquidate_position(position).await?;
             }
         }
@@ -106,6 +109,11 @@ impl MonitoringService {
         let (profit, txs) = self.compute_profitability(position).await?;
         // TODO: Support minimum profit value with a default & from CLI
         if profit > BigDecimal::from(0) {
+            tracing::info!(
+                "[🔭 Monitoring] Trying to liquidiate position for #{} {}!",
+                profit,
+                position.debt.name
+            );
             let tx_hash_felt = self.account.execute_txs(&txs).await?;
             let tx_hash = tx_hash_felt.to_string();
             self.wait_for_tx_to_be_accepted(&tx_hash).await?;
@@ -113,6 +121,11 @@ impl MonitoringService {
                 "[🔭 Monitoring] ✅ Liquidated position #{}! (TX #{})",
                 position.key(),
                 tx_hash
+            );
+        } else {
+            tracing::info!(
+                "[🔭 Monitoring] Position is not worth to liquidate ( estimated profit : {}), skipping ...!",
+                profit
             );
         }
         Ok(profit)
@@ -122,7 +135,7 @@ impl MonitoringService {
     /// and the transactions needed to liquidate the position.
     async fn compute_profitability(&self, position: &Position) -> Result<(BigDecimal, Vec<Call>)> {
         let (liquidable_amount_as_debt_asset, liquidable_amount_as_collateral_asset) = position
-            .liquidable_amount(&self.latest_oracle_prices)
+            .liquidable_amount(self.config.liquidation_mode, &self.latest_oracle_prices)
             .await?;
 
         let liquidation_factor = position
@@ -156,26 +169,8 @@ impl MonitoringService {
 
     /// Waits for a TX to be accepted on-chain.
     pub async fn wait_for_tx_to_be_accepted(&self, tx_hash: &str) -> Result<()> {
-        let mut retries = 0;
-        let duration_to_wait_between_polling = Duration::from_secs(INTERVAL_CHECK_TX_FINALITY);
-        tokio::time::sleep(duration_to_wait_between_polling).await;
-
         let tx_hash = Felt::from_hex(tx_hash)?;
-        loop {
-            let response = self.rpc_client.get_transaction_receipt(tx_hash).await?;
-            let status = response.receipt.finality_status();
-            if *status != TransactionFinalityStatus::AcceptedOnL2 {
-                retries += 1;
-                if retries > MAX_RETRIES_VERIFY_TX_FINALITY {
-                    return Err(anyhow!(
-                        "Max retries exceeeded while waiting for tx {tx_hash} finality."
-                    ));
-                }
-                tokio::time::sleep(duration_to_wait_between_polling).await;
-            } else {
-                break;
-            }
-        }
+        wait_for_tx(tx_hash, self.rpc_client.clone()).await?;
         Ok(())
     }
 }

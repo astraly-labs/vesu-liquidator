@@ -1,0 +1,23 @@
+# Exclude the Dockerfile itself
+Dockerfile
+
+# Exclude any Docker-related files
+.dockerignore
+docker-compose.yml
+
+# Exclude version control system files
+.git
+.gitignore
+
+# Exclude any large data files, if present
+*.data
+*.csv
+*.log
+
+# Exclude any other unnecessary files or directories
+node_modules
+*.md
+*.txt
+
+# Keep only necessary configuration files
+!config.yaml

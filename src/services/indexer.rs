@@ -50,6 +50,8 @@ impl IndexerService {
         let uri = match config.network {
             NetworkName::Mainnet => Uri::from_static("https://mainnet.starknet.a5a.ch"),
             NetworkName::Sepolia => Uri::from_static("https://sepolia.starknet.a5a.ch"),
+            #[cfg(feature = "testing")]
+            NetworkName::Devnet => Uri::from_static("http://localhost:7171"),
         };
 
         let stream_config = Configuration::<Filter>::default()
