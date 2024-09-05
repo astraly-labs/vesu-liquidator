@@ -40,7 +40,7 @@ pub async fn start_all_services(
             .unwrap_or_default()
             .as_path()
             .to_str()
-            .unwrap(),
+            .unwrap_or_default(),
     );
     let (last_block_indexed, _) = storage.load().await?;
 
