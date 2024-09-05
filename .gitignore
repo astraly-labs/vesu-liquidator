@@ -3,6 +3,7 @@
 .env
 db/
 infra/db/password.txt
+data.json
 
 # Vscode settings
 .vscode
