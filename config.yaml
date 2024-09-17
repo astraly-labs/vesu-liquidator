@@ -2,12 +2,12 @@ vesu:
   mainnet:
     singleton_address: "0x02545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef"
     extension_address: "0x2334189e831d804d4a11d3f71d4a982ec82614ac12ed2e9ca2f8da4e6374fa"
-    liquidate_address: "0x293400994360a80e1af1e4a6bc3501d924c7986a957ebca4fd0422791f5913c"
+    liquidate_address: "0x7d166b6792efbb1cf5eb58bdf05ba8b733ce90e6fa449bc92060ffffe6bfb55"
 
   sepolia:
     singleton_address: "0x69d0eca40cb01eda7f3d76281ef524cecf8c35f4ca5acc862ff128e7432964b"
     extension_address: "0x18e0277fef34ae5687da68b7810a04230a45ff9686068868528d2e07fae705d"
-    liquidate_address: "0x293400994360a80e1af1e4a6bc3501d924c7986a957ebca4fd0422791f5913c"
+    liquidate_address: "0x11cc615b361d445d07aac1f27882f1597ac0e02cec434d729510c2d02fdc883"
 
 assets:
   - name: "ethereum"
