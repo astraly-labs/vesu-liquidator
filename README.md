@@ -9,7 +9,9 @@
 
 ## About
 
-Vesu Liquidator 🤖 is an automated bot that monitors positions on the Vesu Protocol and automatically liquidates them if it's worth it.
+Vesu Liquidator 🤖 is an automated bot that monitors positions on the Vesu Protocol and automatically liquidates them.
+
+Under the hood, the bot calls the [vesu-liquidate](https://github.com/vesuxyz/vesu-liquidate) contract made by the Vesu team.
 
 ## Getting Started
 
