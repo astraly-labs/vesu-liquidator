@@ -74,10 +74,6 @@ impl RunCmd {
         if self.pragma_api_key.is_none() || self.apibara_api_key.is_none() {
             return Err(anyhow!("Pragma API Key or Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."));
         }
-        if self.liquidation_mode == LiquidationMode::Partial {
-            tracing::warn!("Partial Liquidation is not handled by Liquidate contract yet. Switching to full liquidation mode.");
-            self.liquidation_mode = LiquidationMode::Full;
-        }
 
         match self.network {
             NetworkName::Mainnet => {

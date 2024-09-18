@@ -142,8 +142,10 @@ impl MonitoringService {
             .fetch_liquidation_factors(&self.config, self.rpc_client.clone())
             .await;
 
-        let debt_to_liquidate =
-            liquidable_amount_as_debt_asset.clone() * liquidation_factor.clone();
+        let debt_to_liquidate = match self.config.liquidation_mode {
+            crate::config::LiquidationMode::Full => BigDecimal::from(0),
+            crate::config::LiquidationMode::Partial => liquidable_amount_as_debt_asset.clone() * liquidation_factor.clone(),
+        };
         let min_collateral_to_receive =
             liquidable_amount_as_collateral_asset * liquidation_factor.clone();
         let simulated_profit: BigDecimal =
@@ -154,7 +156,6 @@ impl MonitoringService {
                 self.config.liquidate_address,
                 debt_to_liquidate,
                 min_collateral_to_receive,
-                simulated_profit.clone(),
             )
             .await?;
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
