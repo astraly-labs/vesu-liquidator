@@ -13,7 +13,6 @@ use starknet::providers::{JsonRpcClient, Provider};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::ops::Neg;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -271,18 +270,12 @@ impl Position {
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
-            amount: I129::cairo_deserialize(
-                &[Felt::ZERO],
-                0,
-            )?,
+            amount: I129::cairo_deserialize(&[Felt::ZERO], 0)?,
         };
 
         let withdraw_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.collateral.address),
-            amount: I129::cairo_deserialize(
-                &[Felt::ZERO],
-                0,
-            )?,
+            amount: I129::cairo_deserialize(&[Felt::ZERO], 0)?,
         };
 
         // As mentionned before the route is inverted for precision purpose
@@ -342,9 +335,7 @@ impl Position {
             ),
             liquidate_swap,
             withdraw_swap,
-            debt_to_repay: cainome::cairo_serde::U256::from_bytes_be(
-                &debt_to_repay,
-            ),
+            debt_to_repay: cainome::cairo_serde::U256::from_bytes_be(&debt_to_repay),
         };
 
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);

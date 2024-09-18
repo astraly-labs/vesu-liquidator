@@ -144,7 +144,9 @@ impl MonitoringService {
 
         let debt_to_liquidate = match self.config.liquidation_mode {
             crate::config::LiquidationMode::Full => BigDecimal::from(0),
-            crate::config::LiquidationMode::Partial => liquidable_amount_as_debt_asset.clone() * liquidation_factor.clone(),
+            crate::config::LiquidationMode::Partial => {
+                liquidable_amount_as_debt_asset.clone() * liquidation_factor.clone()
+            }
         };
         let min_collateral_to_receive =
             liquidable_amount_as_collateral_asset * liquidation_factor.clone();
