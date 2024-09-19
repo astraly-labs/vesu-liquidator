@@ -4,8 +4,7 @@ use anyhow::{anyhow, Result};
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
 use starknet::{
-    accounts::Call,
-    core::types::Felt,
+    core::types::{Call, Felt},
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
 };
 use tokio::sync::mpsc::Receiver;

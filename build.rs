@@ -22,7 +22,8 @@ fn main() {
         let contract_files =
             strk_abi_base.join(format!("vesu_liquidate_{abi_file}.contract_class.json"));
         let contract_files = contract_files.to_str().unwrap();
-        let abigen = cainome::rs::Abigen::new(abi_file, contract_files);
+        let abigen = cainome::rs::Abigen::new(abi_file, contract_files)
+            .with_derives(vec!["serde::Deserialize".to_string()]);
 
         abigen
             .generate()
