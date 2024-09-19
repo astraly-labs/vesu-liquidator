@@ -26,7 +26,6 @@ serde = "1.0.210"
 serde_json = "1.0.128"
 serde_yaml = "0.9"
 starknet = { git = "https://github.com/xJonathanLEI/starknet-rs", rev = "2ddc694" }
-starknet-types-core = { git = "https://github.com/starknet-io/types-rs", rev = "f98f048" }
 strum = { version = "0.26", features = ["derive"] }
 tokio = { version = "1.40.0", features = ["full"] }
 tracing = "0.1.40"

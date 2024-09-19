@@ -3902,7 +3902,6 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "starknet 0.11.0",
- "starknet-types-core 0.1.5 (git+https://github.com/starknet-io/types-rs?rev=f98f048)",
  "strum",
  "testcontainers",
  "tokio",
