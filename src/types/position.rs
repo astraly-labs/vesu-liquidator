@@ -5,15 +5,13 @@ use bigdecimal::BigDecimal;
 use cainome::cairo_serde::CairoSerde;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
-use starknet::accounts::Call;
-use starknet::core::types::Felt;
 use starknet::core::types::{BlockId, BlockTag, FunctionCall};
+use starknet::core::types::{Call, Felt};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::ops::Neg;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -264,51 +262,21 @@ impl Position {
         liquidate_contract: Felt,
         amount_to_liquidate: BigDecimal,
         minimum_collateral_to_retrieve: BigDecimal,
-        profit_estimated: BigDecimal,
     ) -> Result<Vec<Call>> {
-        // TODO: remove those line when vesu contract allow partial liquidation
-        // Setting those value to 0 because vesu Liquidate contract required amount = 0 for both swap
-        let amount_to_liquidate = BigDecimal::from(0);
-        let profit_estimated = BigDecimal::from(0);
-
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
-            amount: I129::cairo_deserialize(
-                &[Felt::from(
-                    amount_to_liquidate
-                        .clone()
-                        .with_scale(0)
-                        .neg()
-                        .into_bigint_and_exponent()
-                        .0,
-                )],
-                0,
-            )?,
+            amount: I129::cairo_deserialize(&[Felt::ZERO], 0)?,
         };
 
         let withdraw_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.collateral.address),
-            amount: I129::cairo_deserialize(
-                &[Felt::from(
-                    profit_estimated
-                        .clone()
-                        .with_scale(0)
-                        .into_bigint_and_exponent()
-                        .0,
-                )],
-                0,
-            )?,
+            amount: I129::cairo_deserialize(&[Felt::ZERO], 0)?,
         };
 
         // As mentionned before the route is inverted for precision purpose
         let liquidate_route: Vec<RouteNode> = Position::get_ekubo_route(
-            amount_to_liquidate
-                .clone()
-                .with_scale(0)
-                .into_bigint_and_exponent()
-                .0
-                .to_str_radix(10),
+            String::from("0"),
             self.debt.name.clone(),
             self.collateral.name.clone(),
         )
@@ -316,12 +284,7 @@ impl Position {
         let liquidate_limit: u128 = u128::MAX;
 
         let withdraw_route: Vec<RouteNode> = Position::get_ekubo_route(
-            profit_estimated
-                .clone()
-                .with_scale(0)
-                .into_bigint_and_exponent()
-                .0
-                .to_str_radix(10),
+            String::from("0"),
             self.debt.name.clone(),
             String::from("usdc"),
         )
@@ -349,6 +312,14 @@ impl Position {
             .try_into()
             .expect("failed to parse min col to retrieve");
 
+        let debt_to_repay: [u8; 32] = amount_to_liquidate
+            .as_bigint_and_exponent()
+            .0
+            .to_bytes_be()
+            .1
+            .try_into()
+            .expect("failed to parse min col to retrieve");
+
         let liquidate_params = LiquidateParams {
             pool_id: self.pool_id,
             collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
@@ -360,6 +331,7 @@ impl Position {
             ),
             liquidate_swap,
             withdraw_swap,
+            debt_to_repay: cainome::cairo_serde::U256::from_bytes_be(&debt_to_repay),
         };
 
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
