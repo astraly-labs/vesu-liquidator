@@ -264,9 +264,6 @@ impl Position {
         amount_to_liquidate: BigDecimal,
         minimum_collateral_to_retrieve: BigDecimal,
     ) -> Result<Vec<Call>> {
-        // TODO: remove those line when vesu contract allow partial liquidation
-        // Setting those value to 0 because vesu Liquidate contract required amount = 0 for both swap
-
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
