@@ -106,8 +106,6 @@ impl MonitoringService {
     /// liquidate it.
     async fn try_to_liquidate_position(&self, position: &Position) -> Result<BigDecimal> {
         let (profit, txs) = self.compute_profitability(position).await?;
-        tracing::info!("{:?}", profit);
-        tracing::info!("{:?}", txs);
         // TODO: Support minimum profit value with a default & from CLI
         if profit > BigDecimal::from(0) {
             tracing::info!(

@@ -30,6 +30,9 @@ use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 
 use super::account::StarknetAccount;
 
+/// TODO
+const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.05;
+
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
 pub struct PositionsMap(pub Arc<RwLock<HashMap<u64, Position>>>);
@@ -172,15 +175,22 @@ impl Position {
             .await
             .expect("failed to retrieve ltv ratio");
 
-        let is_liquidable = ltv_ratio.clone() + BigDecimal::from_f64(0.1).unwrap() >= self.lltv;
-        if is_liquidable {
-            self.debug_position_state(is_liquidable, ltv_ratio);
+        let is_liquidable = ltv_ratio >= self.lltv.clone();
+        let is_almost_liquidable = ltv_ratio
+            >= self.lltv.clone() - BigDecimal::from_f64(ALMOST_LIQUIDABLE_THRESHOLD).unwrap();
+        if is_liquidable || is_almost_liquidable {
+            self.debug_position_state(is_liquidable, is_almost_liquidable, ltv_ratio);
         }
         is_liquidable
     }
 
     /// Prints the status of the position and if it's liquidable or not.
-    fn debug_position_state(&self, is_liquidable: bool, ltv_ratio: BigDecimal) {
+    fn debug_position_state(
+        &self,
+        is_liquidable: bool,
+        is_almost_liquidable: bool,
+        ltv_ratio: BigDecimal,
+    ) {
         tracing::info!(
             "{} is at ratio {:.2}%/{:.2}% => {}",
             self,
@@ -188,6 +198,8 @@ impl Position {
             self.lltv.clone() * BigDecimal::from(100),
             if is_liquidable {
                 "liquidable!".green()
+            } else if is_almost_liquidable {
+                "almost liquidable 🔫".yellow()
             } else {
                 "NOT liquidable.".red()
             }
