@@ -24,8 +24,8 @@ fn main() {
         let contract_files = contract_files.to_str().unwrap();
         let abigen = cainome::rs::Abigen::new(abi_file, contract_files).with_derives(vec![
             "Debug".into(),
-            "serde::Deserialize".to_string(),
-            "serde::Serialize".to_string(),
+            "serde::Deserialize".into(),
+            "serde::Serialize".into(),
         ]);
 
         abigen

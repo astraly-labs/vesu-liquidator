@@ -167,7 +167,11 @@ impl IndexerService {
             }
             let position_key = new_position.key();
             if self.seen_positions.insert(position_key) {
-                tracing::info!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
+                tracing::info!(
+                    "[🔍 Indexer] Found new position 0x{:x} at block {}",
+                    new_position.key(),
+                    block_number
+                );
             }
             match self.positions_sender.try_send((block_number, new_position)) {
                 Ok(_) => {}

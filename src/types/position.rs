@@ -30,8 +30,8 @@ use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 
 use super::account::StarknetAccount;
 
-/// TODO
-const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.05;
+/// Threshold for which we consider a position almost liquidable.
+const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.03;
 
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
@@ -270,7 +270,8 @@ impl Position {
 
         let json_value: Value = serde_json::from_str(&response_text)?;
 
-        // TODO: Horrible - refacto
+        // We have to deserialize by hand into a Vec of [RouteNode].
+        // TODO: Make this cleaner!
         let route = json_value["route"]
             .as_array()
             .context("'route' is not an array")?
@@ -349,14 +350,14 @@ impl Position {
 
         // As mentionned before the route is inverted for precision purpose
         let liquidate_route: Vec<RouteNode> = Position::get_ekubo_route(
-            String::from("10"), // TODO: ?
+            String::from("10"), // TODO: Investigate the behavior of this value with the Vesu Liquidate contract
             self.debt.name.clone(),
             self.collateral.name.clone(),
         )
         .await?;
 
         let withdraw_route: Vec<RouteNode> = Position::get_ekubo_route(
-            String::from("10"), // TODO: ?
+            String::from("10"), // TODO: Investigate the behavior of this value with the Vesu Liquidate contract
             self.debt.name.clone(),
             String::from("usdc"),
         )
@@ -376,7 +377,6 @@ impl Position {
         };
 
         let min_col_to_retrieve = big_decimal_to_felt(minimum_collateral_to_retrieve);
-
         let debt_to_repay = big_decimal_to_felt(amount_to_liquidate);
 
         let liquidate_params = LiquidateParams {
