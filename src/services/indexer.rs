@@ -27,7 +27,7 @@ use crate::{
     utils::conversions::{apibara_field_as_felt, felt_as_apibara_field},
 };
 
-const INDEXING_STREAM_CHUNK_SIZE: usize = 1024;
+const INDEXING_STREAM_CHUNK_SIZE: usize = 1;
 
 pub struct IndexerService {
     config: Config,
