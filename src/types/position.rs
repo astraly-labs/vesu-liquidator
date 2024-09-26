@@ -1,10 +1,11 @@
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, Context, Ok, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
-use bigdecimal::BigDecimal;
-use cainome::cairo_serde::CairoSerde;
+use bigdecimal::{BigDecimal, FromPrimitive};
+use cainome::cairo_serde::{ContractAddress, U256};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use starknet::core::types::{BlockId, BlockTag, FunctionCall};
 use starknet::core::types::{Call, Felt};
 use starknet::providers::jsonrpc::HttpTransport;
@@ -15,13 +16,16 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
+use crate::bindings::liquidate::{
+    Liquidate, LiquidateParams, PoolKey, RouteNode, Swap, TokenAmount, I129,
+};
 
 use crate::config::{Config, LiquidationMode, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::apply_overhead;
 use crate::utils::constants::VESU_RESPONSE_DECIMALS;
+use crate::utils::conversions::big_decimal_to_felt;
 use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 
 use super::account::StarknetAccount;
@@ -29,11 +33,6 @@ use super::account::StarknetAccount;
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
 pub struct PositionsMap(pub Arc<RwLock<HashMap<u64, Position>>>);
-
-#[derive(Deserialize)]
-pub struct EkuboApiGetRouteResponse {
-    route: Vec<RouteNode>,
-}
 
 impl PositionsMap {
     pub fn new() -> Self {
@@ -173,7 +172,7 @@ impl Position {
             .await
             .expect("failed to retrieve ltv ratio");
 
-        let is_liquidable = ltv_ratio > self.lltv;
+        let is_liquidable = ltv_ratio.clone() + BigDecimal::from_f64(0.1).unwrap() >= self.lltv;
         if is_liquidable {
             self.debug_position_state(is_liquidable, ltv_ratio);
         }
@@ -248,14 +247,76 @@ impl Position {
             "https://mainnet-api.ekubo.org/quote/{amount_as_string}/{from_token}/{to_token}"
         );
         let http_client = reqwest::Client::new();
+
         let response = http_client.get(ekubo_api_endpoint).send().await?;
-        let ekubo_response: EkuboApiGetRouteResponse = response.json().await?;
-        Ok(ekubo_response.route)
+
+        if !response.status().is_success() {
+            anyhow::bail!("API request failed with status: {}", response.status());
+        }
+
+        let response_text = response.text().await?;
+
+        let json_value: Value = serde_json::from_str(&response_text)?;
+
+        // TODO: Horrible - refacto
+        let route = json_value["route"]
+            .as_array()
+            .context("'route' is not an array")?
+            .iter()
+            .map(|node| {
+                let pool_key = &node["pool_key"];
+                Ok(RouteNode {
+                    pool_key: PoolKey {
+                        token0: ContractAddress(Felt::from_hex(
+                            pool_key["token0"]
+                                .as_str()
+                                .context("token0 is not a string")?,
+                        )?),
+                        token1: ContractAddress(Felt::from_hex(
+                            pool_key["token1"]
+                                .as_str()
+                                .context("token1 is not a string")?,
+                        )?),
+                        fee: u128::from_str_radix(
+                            pool_key["fee"]
+                                .as_str()
+                                .context("fee is not a string")?
+                                .trim_start_matches("0x"),
+                            16,
+                        )
+                        .context("Failed to parse fee as u128")?,
+                        tick_spacing: pool_key["tick_spacing"]
+                            .as_u64()
+                            .context("tick_spacing is not a u64")?
+                            as u128,
+                        extension: ContractAddress(Felt::from_hex(
+                            pool_key["extension"]
+                                .as_str()
+                                .context("extension is not a string")?,
+                        )?),
+                    },
+                    sqrt_ratio_limit: U256::from_bytes_be(
+                        &Felt::from_hex(
+                            node["sqrt_ratio_limit"]
+                                .as_str()
+                                .context("sqrt_ratio_limit is not a string")?,
+                        )
+                        .unwrap()
+                        .to_bytes_be(),
+                    ),
+                    skip_ahead: node["skip_ahead"]
+                        .as_u64()
+                        .context("skip_ahead is not a u64")?
+                        as u128,
+                })
+            })
+            .collect::<Result<Vec<RouteNode>>>()?;
+
+        Ok(route)
     }
 
     /// Returns the TX necessary to liquidate this position (approve + liquidate).
     // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
-    #[allow(unused)]
     pub async fn get_liquidation_txs(
         &self,
         account: &StarknetAccount,
@@ -266,59 +327,45 @@ impl Position {
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
-            amount: I129::cairo_deserialize(&[Felt::ZERO], 0)?,
+            amount: I129 { mag: 0, sign: true },
         };
 
         let withdraw_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.collateral.address),
-            amount: I129::cairo_deserialize(&[Felt::ZERO], 0)?,
+            amount: I129 { mag: 0, sign: true },
         };
 
         // As mentionned before the route is inverted for precision purpose
         let liquidate_route: Vec<RouteNode> = Position::get_ekubo_route(
-            String::from("0"),
+            String::from("10"), // TODO: ?
             self.debt.name.clone(),
             self.collateral.name.clone(),
         )
         .await?;
-        let liquidate_limit: u128 = u128::MAX;
 
         let withdraw_route: Vec<RouteNode> = Position::get_ekubo_route(
-            String::from("0"),
+            String::from("10"), // TODO: ?
             self.debt.name.clone(),
             String::from("usdc"),
         )
         .await?;
-        let withdraw_limit: u128 = u128::MAX;
 
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
 
         let liquidate_swap = Swap {
             route: liquidate_route,
             token_amount: liquidate_token,
-            limit_amount: liquidate_limit,
+            limit_amount: u128::MAX,
         };
         let withdraw_swap = Swap {
             route: withdraw_route,
             token_amount: withdraw_token,
-            limit_amount: withdraw_limit,
+            limit_amount: u128::MAX,
         };
 
-        let min_col_to_retrieve: [u8; 32] = minimum_collateral_to_retrieve
-            .as_bigint_and_exponent()
-            .0
-            .to_bytes_be()
-            .1
-            .try_into()
-            .expect("failed to parse min col to retrieve");
+        let min_col_to_retrieve = big_decimal_to_felt(minimum_collateral_to_retrieve);
 
-        let debt_to_repay: [u8; 32] = amount_to_liquidate
-            .as_bigint_and_exponent()
-            .0
-            .to_bytes_be()
-            .1
-            .try_into()
-            .expect("failed to parse min col to retrieve");
+        let debt_to_repay = big_decimal_to_felt(amount_to_liquidate);
 
         let liquidate_params = LiquidateParams {
             pool_id: self.pool_id,
@@ -327,11 +374,11 @@ impl Position {
             user: cainome::cairo_serde::ContractAddress(self.user_address),
             recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
             min_collateral_to_receive: cainome::cairo_serde::U256::from_bytes_be(
-                &min_col_to_retrieve,
+                &min_col_to_retrieve.to_bytes_be(),
             ),
             liquidate_swap,
             withdraw_swap,
-            debt_to_repay: cainome::cairo_serde::U256::from_bytes_be(&debt_to_repay),
+            debt_to_repay: cainome::cairo_serde::U256::from_bytes_be(&debt_to_repay.to_bytes_be()),
         };
 
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);

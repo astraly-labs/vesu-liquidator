@@ -22,8 +22,12 @@ pub fn apibara_field_as_felt(value: &FieldElement) -> Felt {
 
 /// Converts a BigDecimal to a U256.
 pub fn big_decimal_to_u256(value: BigDecimal) -> U256 {
+    U256::from(big_decimal_to_felt(value))
+}
+
+pub fn big_decimal_to_felt(value: BigDecimal) -> Felt {
     let (amount, _): (BigInt, _) = value.as_bigint_and_exponent();
-    U256::from(Felt::from(amount.clone()))
+    Felt::from(amount.clone())
 }
 
 #[cfg(test)]

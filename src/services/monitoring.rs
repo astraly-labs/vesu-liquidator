@@ -106,6 +106,8 @@ impl MonitoringService {
     /// liquidate it.
     async fn try_to_liquidate_position(&self, position: &Position) -> Result<BigDecimal> {
         let (profit, txs) = self.compute_profitability(position).await?;
+        tracing::info!("{:?}", profit);
+        tracing::info!("{:?}", txs);
         // TODO: Support minimum profit value with a default & from CLI
         if profit > BigDecimal::from(0) {
             tracing::info!(
@@ -160,9 +162,9 @@ impl MonitoringService {
             )
             .await?;
         let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
-
         let slippage = BigDecimal::new(BigInt::from(5), 2);
         let slippage_factor = BigDecimal::from(1) - slippage;
+
         Ok((
             (simulated_profit * slippage_factor) - execution_fees,
             liquidation_txs,
