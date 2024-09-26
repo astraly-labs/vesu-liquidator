@@ -27,7 +27,7 @@ use crate::{
     utils::conversions::{apibara_field_as_felt, felt_as_apibara_field},
 };
 
-const INDEXING_STREAM_CHUNK_SIZE: usize = 1024;
+const INDEXING_STREAM_CHUNK_SIZE: usize = 1;
 
 pub struct IndexerService {
     config: Config,
@@ -167,7 +167,11 @@ impl IndexerService {
             }
             let position_key = new_position.key();
             if self.seen_positions.insert(position_key) {
-                tracing::info!("[🔍 Indexer] Found new position 0x{:x}", new_position.key());
+                tracing::info!(
+                    "[🔍 Indexer] Found new position 0x{:x} at block {}",
+                    new_position.key(),
+                    block_number
+                );
             }
             match self.positions_sender.try_send((block_number, new_position)) {
                 Ok(_) => {}
