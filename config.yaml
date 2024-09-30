@@ -14,34 +14,34 @@ assets:
     ticker: "ETH"
     decimals: 18
     mainnet_address: "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-    sepolia_address: ""
+    sepolia_address: "0x7809bb63f557736e49ff0ae4a64bd8aa6ea60e3f77f26c520cb92c24e3700d3"
 
   - name: "wrapped-bitcoin"
     ticker: "WBTC"
     decimals: 8
     mainnet_address: "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac"
-    sepolia_address: ""
+    sepolia_address: "0x063d32a3fa6074e72e7a1e06fe78c46a0c8473217773e19f11d8c8cbfc4ff8ca"
 
   - name: "usd-coin"
     ticker: "USDC"
     decimals: 6
     mainnet_address: "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"
-    sepolia_address: ""
+    sepolia_address: "0x027ef4670397069d7d5442cb7945b27338692de0d8896bdb15e6400cf5249f94"
 
   - name: "tether"
     ticker: "USDT"
     decimals: 6
     mainnet_address: "0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8"
-    sepolia_address: ""
+    sepolia_address: "0x002cd937c3dccd4a4e125011bbe3189a6db0419bb6dd95c4b5ce5f6d834d8996"
 
   - name: "wrapped-steth"
     ticker: "WSTETH"
     decimals: 18
     mainnet_address: "0x42b8f0484674ca266ac5d08e4ac6a3fe65bd3129795def2dca5c34ecc5f96d2"
-    sepolia_address: ""
+    sepolia_address: "0x057181b39020af1416747a7d0d2de6ad5a5b721183136585e8774e1425efd5d2"
 
   - name: "starknet"
     ticker: "STRK"
     decimals: 18
     mainnet_address: "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
-    sepolia_address: ""
+    sepolia_address: "0x0772131070c7d56f78f3e46b27b70271d8ca81c7c52e3f62aa868fab4b679e43"

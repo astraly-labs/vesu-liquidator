@@ -15,3 +15,5 @@ data.json
 indexer.log
 run_indexer.sh
 src/bindings
+
+*.json
