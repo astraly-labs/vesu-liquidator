@@ -14,7 +14,7 @@ use crate::cli::NetworkName;
 use crate::{config::Config, utils::conversions::hex_str_to_big_decimal};
 
 const USD_ASSET: &str = "usd";
-const PRICES_UPDATE_INTERVAL: u64 = 60; // update every minutes
+const PRICES_UPDATE_INTERVAL: u64 = 30; // update every 30 seconds
 
 pub struct OracleService {
     oracle: PragmaOracle,
@@ -147,7 +147,7 @@ impl PragmaOracle {
     fn fetch_price_url(&self, base: String, quote: String) -> String {
         format!(
             "{}node/v1/onchain/{}/{}?network={}&components=false&variations=false&interval={}&aggregation={}",
-            self.api_url, base, quote,self.network, self.interval, self.aggregation_method
+            self.api_url, base, quote, self.network, self.interval, self.aggregation_method
         )
     }
 }

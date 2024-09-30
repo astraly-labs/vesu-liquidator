@@ -9,6 +9,7 @@ use starknet::{
 
 pub mod constants;
 pub mod conversions;
+pub mod ekubo;
 
 /// Apply a small overhead of 2% to the provided number.
 pub fn apply_overhead(num: BigDecimal) -> BigDecimal {
