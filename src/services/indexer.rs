@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use apibara_core::starknet::v1alpha2::Event;
 use apibara_core::{
     node::v1alpha2::DataFinality,
@@ -15,7 +15,7 @@ use starknet::{
     core::types::{BlockId, BlockTag, FunctionCall},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{error::TrySendError, Sender};
 
 use crate::cli::NetworkName;
 use crate::config::{
@@ -113,35 +113,41 @@ impl IndexerService {
                             reached_pending_block = true;
                         }
                         for block in batch {
+                            let block_number = match block.header.clone() {
+                                Some(hdr) => hdr.block_number,
+                                None => 0,
+                            };
+                            tracing::info!("[🔍 Indexer] Processing block #{}", block_number);
                             for event in block.events {
                                 if let Some(event) = event.event {
-                                    let block_number = match block.header.clone() {
-                                        Some(hdr) => hdr.block_number,
-                                        None => 0,
-                                    };
-                                    self.create_position_from_event(block_number, event).await?;
+                                    if let Err(e) =
+                                        self.create_position_from_event(block_number, event).await
+                                    {
+                                        tracing::error!(
+                                            "Error creating position from event: {}",
+                                            e
+                                        );
+                                    }
                                 }
                             }
                         }
                     }
                     apibara_sdk::DataMessage::Invalidate { cursor } => match cursor {
                         Some(c) => {
-                            return Err(anyhow::anyhow!(
+                            return Err(anyhow!(
                                 "Received an invalidate request data at {}",
                                 &c.order_key
                             ));
                         }
                         None => {
-                            return Err(anyhow::anyhow!(
-                                "Invalidate request without cursor provided"
-                            ));
+                            return Err(anyhow!("Invalidate request without cursor provided"));
                         }
                     },
                     apibara_sdk::DataMessage::Heartbeat => {}
                 },
                 Ok(None) => continue,
                 Err(e) => {
-                    return Err(anyhow::anyhow!("Error while streaming: {}", e));
+                    return Err(anyhow!("Error while streaming: {}", e));
                 }
             }
         }
@@ -175,7 +181,12 @@ impl IndexerService {
             }
             match self.positions_sender.try_send((block_number, new_position)) {
                 Ok(_) => {}
-                Err(e) => panic!("Could not send position: {}", e),
+                Err(TrySendError::Full(_)) => {
+                    tracing::warn!("Channel full, skipping position update");
+                }
+                Err(TrySendError::Closed(_)) => {
+                    return Err(anyhow!("Channel closed, stopping indexer"));
+                }
             }
         }
         Ok(())

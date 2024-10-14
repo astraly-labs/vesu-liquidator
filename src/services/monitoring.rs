@@ -21,8 +21,6 @@ use crate::{
     utils::wait_for_tx,
 };
 
-const CHECK_POSITIONS_INTERVAL: u64 = 10;
-
 pub struct MonitoringService {
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
@@ -31,6 +29,8 @@ pub struct MonitoringService {
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
     storage: Box<dyn Storage>,
+    check_positions_interval: Duration,
+    min_profit: BigDecimal,
 }
 
 impl MonitoringService {
@@ -41,6 +41,8 @@ impl MonitoringService {
         positions_receiver: Receiver<(u64, Position)>,
         latest_oracle_prices: LatestOraclePrices,
         storage: Box<dyn Storage>,
+        check_positions_interval: u64,
+        min_profit: BigDecimal,
     ) -> MonitoringService {
         MonitoringService {
             config,
@@ -50,12 +52,14 @@ impl MonitoringService {
             positions: PositionsMap::from_storage(storage.as_ref()),
             latest_oracle_prices,
             storage,
+            check_positions_interval: Duration::from_secs(check_positions_interval),
+            min_profit,
         }
     }
 
     /// Starts the monitoring service.
     pub async fn start(mut self) -> Result<()> {
-        let mut update_interval = interval(Duration::from_secs(CHECK_POSITIONS_INTERVAL));
+        let mut update_interval = interval(self.check_positions_interval);
 
         loop {
             tokio::select! {
@@ -106,10 +110,9 @@ impl MonitoringService {
     /// liquidate it.
     async fn try_to_liquidate_position(&self, position: &Position) -> Result<BigDecimal> {
         let (profit, txs) = self.compute_profitability(position).await?;
-        // TODO: Support minimum profit value with a default & from CLI
-        if profit > BigDecimal::from(0) {
+        if profit >= self.min_profit {
             tracing::info!(
-                "[🔭 Monitoring] Trying to liquidiate position for #{} {}!",
+                "[🔭 Monitoring] Trying to liquidate position for #{} {}!",
                 profit,
                 position.debt.name
             );
@@ -123,8 +126,9 @@ impl MonitoringService {
             );
         } else {
             tracing::info!(
-                "[🔭 Monitoring] Position is not worth to liquidate ( estimated profit : {}), skipping ...!",
-                profit
+                "[🔭 Monitoring] Position is not worth liquidating (estimated profit: {}, minimum required: {}), skipping...",
+                profit,
+                self.min_profit
             );
         }
         Ok(profit)

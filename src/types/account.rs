@@ -58,7 +58,7 @@ impl StarknetAccount {
     /// Simulate a set of TXs and return the estimation of the fee necessary
     /// to execute them.
     pub async fn estimate_fees_cost(&self, txs: &[Call]) -> Result<BigDecimal> {
-        let estimation = self.0.execute_v1(txs.to_vec()).estimate_fee().await?;
+        let estimation = self.0.execute_v3(txs.to_vec()).estimate_fee().await?;
         Ok(BigDecimal::new(
             estimation.overall_fee.to_bigint(),
             VESU_RESPONSE_DECIMALS,
@@ -67,7 +67,7 @@ impl StarknetAccount {
 
     /// Executes a set of transactions and returns the transaction hash.
     pub async fn execute_txs(&self, txs: &[Call]) -> Result<Felt> {
-        let res = self.0.execute_v1(txs.to_vec()).send().await?;
+        let res = self.0.execute_v3(txs.to_vec()).send().await?;
         Ok(res.transaction_hash)
     }
 }

@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
@@ -29,6 +30,9 @@ use super::account::StarknetAccount;
 
 /// Threshold for which we consider a position almost liquidable.
 const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.02;
+
+/// Cache TTL for liquidation factors
+const LIQUIDATION_FACTOR_CACHE_TTL: Duration = Duration::from_secs(3600);
 
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
@@ -72,6 +76,16 @@ pub struct Position {
     pub lltv: BigDecimal,
 }
 
+#[derive(Clone)]
+struct CachedLiquidationFactor {
+    value: BigDecimal,
+    timestamp: Instant,
+}
+
+lazy_static::lazy_static! {
+    static ref LIQUIDATION_FACTOR_CACHE: Arc<RwLock<HashMap<(Felt, Felt, Felt), CachedLiquidationFactor>>> = Arc::new(RwLock::new(HashMap::new()));
+}
+
 impl Position {
     /// Create a new position from the event_keys of a ModifyPosition event.
     pub fn from_event(config: &Config, event_keys: &[FieldElement]) -> Option<Position> {
@@ -102,10 +116,12 @@ impl Position {
         let collateral_price = prices
             .get(&collateral_name)
             .ok_or_else(|| anyhow!("Price not found for collateral: {}", collateral_name))?
+            .price
             .clone();
         let debt_price = prices
             .get(&debt_name)
             .ok_or_else(|| anyhow!("Price not found for debt: {}", debt_name))?
+            .price
             .clone();
         drop(prices);
 
@@ -124,10 +140,12 @@ impl Position {
         let collateral_dollar_price = prices
             .get(&self.collateral.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for collateral: {}", self.collateral.name))?
+            .price
             .clone();
         let debt_dollar_price = prices
             .get(&self.debt.name.to_lowercase())
             .ok_or_else(|| anyhow!("Price not found for debt: {}", self.debt.name))?
+            .price
             .clone();
         drop(prices);
 
@@ -203,13 +221,22 @@ impl Position {
         );
     }
 
-    // TODO : put that in cache in a map with poolid/collateral/debt as key
-    // Fetch liquidation factor from extension contract
+    // Fetch liquidation factor from extension contract with in-memory cache
     pub async fn fetch_liquidation_factors(
         &self,
         config: &Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     ) -> BigDecimal {
+        let cache_key = (self.pool_id, self.collateral.address, self.debt.address);
+        let cache = LIQUIDATION_FACTOR_CACHE.read().await;
+
+        if let Some(cached) = cache.get(&cache_key) {
+            if cached.timestamp.elapsed() < LIQUIDATION_FACTOR_CACHE_TTL {
+                return cached.value.clone();
+            }
+        }
+        drop(cache);
+
         let calldata = vec![self.pool_id, self.collateral.address, self.debt.address];
 
         let liquidation_config_request = &FunctionCall {
@@ -222,7 +249,18 @@ impl Position {
             .call(liquidation_config_request, BlockId::Tag(BlockTag::Pending))
             .await
             .expect("failed to retrieve");
-        BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
+        let value = BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS);
+
+        let mut cache = LIQUIDATION_FACTOR_CACHE.write().await;
+        cache.insert(
+            cache_key,
+            CachedLiquidationFactor {
+                value: value.clone(),
+                timestamp: Instant::now(),
+            },
+        );
+
+        value
     }
 
     /// Returns the position as a calldata for the LTV config RPC call.
@@ -344,7 +382,7 @@ mod tests {
     use crate::{
         cli::NetworkName,
         config::{Config, LiquidationMode},
-        services::oracle::LatestOraclePrices,
+        services::oracle::{AssetInfo, LatestOraclePrices},
         types::{asset::Asset, position::Position},
     };
 
@@ -384,9 +422,21 @@ mod tests {
             lltv: BigDecimal::new(BigInt::from(68), 2),
         };
 
-        let mut oracle_price: HashMap<String, BigDecimal> = HashMap::new();
-        oracle_price.insert("eth".to_string(), BigDecimal::new(BigInt::from(2000), 0));
-        oracle_price.insert("usdc".to_string(), BigDecimal::new(BigInt::from(1), 0));
+        let mut oracle_price: HashMap<String, AssetInfo> = HashMap::new();
+        oracle_price.insert(
+            "eth".to_string(),
+            AssetInfo {
+                price: BigDecimal::new(BigInt::from(2000), 0),
+                decimals: 0,
+            },
+        );
+        oracle_price.insert(
+            "usdc".to_string(),
+            AssetInfo {
+                price: BigDecimal::new(BigInt::from(1), 0),
+                decimals: 0,
+            },
+        );
 
         let last_oracle_price = LatestOraclePrices(Arc::new(Mutex::new(oracle_price)));
         // Test Ltv computation
@@ -398,11 +448,13 @@ mod tests {
         assert!(!(position.is_liquidable(&last_oracle_price).await));
         // changing price to test a non liquidable position
         {
-            last_oracle_price
-                .0
-                .lock()
-                .await
-                .insert("eth".to_string(), BigDecimal::new(BigInt::from(1000), 0));
+            last_oracle_price.0.lock().await.insert(
+                "eth".to_string(),
+                AssetInfo {
+                    price: BigDecimal::new(BigInt::from(1000), 0),
+                    decimals: 0,
+                },
+            );
         }
         //check new ltv
         assert_eq!(

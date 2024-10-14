@@ -33,9 +33,7 @@ docker run --rm -it \
   ghcr.io/astraly-labs/vesu-liquidator:latest \
   --account-address <LIQUIDATOR_ACCOUNT_ADDRESS> \
   --network <NETWORK_NAME> \
-  --rpc-url <RPC_URL> \
-  --starting-block <BLOCK_NUMBER> \
-  --pragma-api-base-url <PRAGMA_API_BASE_URL>
+  --rpc-url <RPC_URL>
 ```
 
 For more options, run:
@@ -65,9 +63,7 @@ docker run --rm -it \
   vesu-liquidator \
   --account-address <LIQUIDATOR_ACCOUNT_ADDRESS> \
   --network <NETWORK_NAME> \
-  --rpc-url <RPC_URL> \
-  --starting-block <BLOCK_NUMBER> \
-  --pragma-api-base-url <PRAGMA_API_BASE_URL>
+  --rpc-url <RPC_URL>
 ```
 
 ### Prerequisites

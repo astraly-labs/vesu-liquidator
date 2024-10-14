@@ -27,4 +27,3 @@ COPY --from=builder /app/target/release/vesu-liquidator /usr/local/bin
 COPY --from=builder /app/config.yaml .
 
 ENTRYPOINT ["tini", "--", "vesu-liquidator"]
-CMD ["--help"]
