@@ -59,7 +59,7 @@ pub async fn start_all_services(
 
     let latest_oracle_prices = LatestOraclePrices::from_config(&config);
     tracing::info!("🧩 Starting the oracle service...");
-    let oracle_handle: JoinHandle<std::prelude::v1::Result<(), anyhow::Error>> =
+    let oracle_handle: JoinHandle<anyhow::Result<(), anyhow::Error>> =
         start_oracle_service(
             run_cmd.pragma_api_base,
             run_cmd.pragma_api_key.unwrap(),
