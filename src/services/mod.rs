@@ -46,7 +46,7 @@ pub async fn start_all_services(
 
     // TODO: Add force start from staring block in cli
     let starting_block = cmp::max(run_cmd.starting_block, last_block_indexed);
-    println!("  🥡 Starting from block {}\n\n", starting_block);
+    tracing::info!("  🥡 Starting from block {}\n\n", starting_block);
 
     tracing::info!("🧩 Starting the indexer service...");
     let indexer_handle = start_indexer_service(

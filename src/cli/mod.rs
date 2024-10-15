@@ -161,8 +161,8 @@ impl RunCmd {
             }
         }
 
-        println!("⚙️ Configuration after validation:");
-        println!("{:#?}", self);
+        tracing::info!("⚙️ Configuration after validation:");
+        tracing::info!("{:#?}", self);
 
         Ok(())
     }
