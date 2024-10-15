@@ -78,7 +78,7 @@ impl OracleService {
         self.update_prices_http().await?;
 
         tracing::info!("[🔮 Oracle] Starting WebSocket connection...");
-        let ws_url = format!("wss://ws.{}/node/v1/data/subscribe", self.oracle.api_base);
+        let ws_url = format!("wss://ws.{}/node/v1/data/price/subscribe", self.oracle.api_base);
 
         let connect_result = connect_async(ws_url).await;
         let (ws_stream, _) = match connect_result {
