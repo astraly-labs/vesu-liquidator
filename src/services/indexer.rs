@@ -15,7 +15,7 @@ use starknet::{
     core::types::{BlockId, BlockTag, FunctionCall},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
-use tokio::sync::mpsc::{error::TrySendError, Sender};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::cli::NetworkName;
 use crate::config::{
@@ -35,7 +35,7 @@ pub struct IndexerService {
     uri: Uri,
     apibara_api_key: String,
     stream_config: Configuration<Filter>,
-    positions_sender: Sender<(u64, Position)>,
+    positions_sender: UnboundedSender<(u64, Position)>,
     seen_positions: HashSet<u64>,
 }
 
@@ -44,7 +44,7 @@ impl IndexerService {
         config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         apibara_api_key: String,
-        positions_sender: Sender<(u64, Position)>,
+        positions_sender: UnboundedSender<(u64, Position)>,
         from_block: u64,
     ) -> IndexerService {
         let uri = match config.network {
@@ -179,13 +179,10 @@ impl IndexerService {
                     block_number
                 );
             }
-            match self.positions_sender.try_send((block_number, new_position)) {
+            match self.positions_sender.send((block_number, new_position)) {
                 Ok(_) => {}
-                Err(TrySendError::Full(_)) => {
-                    tracing::warn!("Channel full, skipping position update");
-                }
-                Err(TrySendError::Closed(_)) => {
-                    return Err(anyhow!("Channel closed, stopping indexer"));
+                Err(e) => {
+                    return Err(anyhow!("Channel closed, stopping indexer: {}", e));
                 }
             }
         }

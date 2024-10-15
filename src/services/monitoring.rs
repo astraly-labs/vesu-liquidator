@@ -7,7 +7,7 @@ use starknet::{
     core::types::{Call, Felt},
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
 };
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::interval;
 
 use crate::{
@@ -25,7 +25,7 @@ pub struct MonitoringService {
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
-    positions_receiver: Receiver<(u64, Position)>,
+    positions_receiver: UnboundedReceiver<(u64, Position)>,
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
     storage: Box<dyn Storage>,
@@ -38,7 +38,7 @@ impl MonitoringService {
         config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         account: StarknetAccount,
-        positions_receiver: Receiver<(u64, Position)>,
+        positions_receiver: UnboundedReceiver<(u64, Position)>,
         latest_oracle_prices: LatestOraclePrices,
         storage: Box<dyn Storage>,
         check_positions_interval: u64,

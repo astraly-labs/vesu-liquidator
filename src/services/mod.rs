@@ -9,7 +9,7 @@ use std::{cmp, sync::Arc, time::Duration};
 use anyhow::{Context, Result};
 use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
 use tokio::{
-    sync::mpsc::{self, Receiver, Sender},
+    sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
 };
 
@@ -31,7 +31,7 @@ pub async fn start_all_services(
     account: StarknetAccount,
     run_cmd: RunCmd,
 ) -> Result<()> {
-    let (positions_sender, position_receiver) = mpsc::channel::<(u64, Position)>(1024);
+    let (positions_sender, position_receiver) = mpsc::unbounded_channel::<(u64, Position)>();
 
     // TODO: Add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
     let mut storage = JsonStorage::new(
@@ -103,7 +103,7 @@ pub async fn start_all_services(
 fn start_indexer_service(
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-    positions_sender: Sender<(u64, Position)>,
+    positions_sender: UnboundedSender<(u64, Position)>,
     starting_block: u64,
     apibara_api_key: String,
 ) -> JoinHandle<Result<()>> {
@@ -152,7 +152,7 @@ fn start_monitoring_service(
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: StarknetAccount,
-    position_receiver: Receiver<(u64, Position)>,
+    position_receiver: UnboundedReceiver<(u64, Position)>,
     latest_oracle_prices: LatestOraclePrices,
     storage: Box<dyn Storage>,
     check_positions_interval: u64,
