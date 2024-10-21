@@ -29,7 +29,7 @@ impl Storage for JsonStorage {
             self.data = StoredData::new(0, HashMap::new());
             return Ok(self.data.as_tuple());
         }
-        let json_value: Value = serde_json::from_reader(File::open(self.file_path.clone())?)?;
+        let json_value: Value = serde_json::from_reader(File::open(self.file_path.clone()).expect("failed to open file")).expect("failed to load json from file reader");
         let last_block_indexed: u64 = match json_value.get("last_block_indexed") {
             Some(Value::Number(lbi)) => {
                 if lbi.is_u64() {

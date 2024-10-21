@@ -253,10 +253,11 @@ impl Position {
         &self,
         account: &StarknetAccount,
         liquidate_contract: Felt,
-        amount_to_liquidate: BigDecimal,
+        debt_to_liquidate: BigDecimal,
         minimum_collateral_to_retrieve: BigDecimal,
     ) -> Result<Vec<Call>> {
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
+        tracing::info!("Retrieving Liquidation Tx ...");
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
             amount: I129 { mag: 0, sign: true },
@@ -267,25 +268,28 @@ impl Position {
             amount: I129 { mag: 0, sign: true },
         };
 
+        tracing::info!("Retrieving Liquidation swap route from Ekubo ...");
         // As mentionned before the route is inverted for precision purpose
         let liquidate_route: Vec<RouteNode> = get_ekubo_route(
-            String::from("10"), // TODO: Investigate the behavior of this value with the Vesu Liquidate contract
+            format!("-{}",debt_to_liquidate.to_string()), // TODO: must be negative
             self.debt.name.clone(),
             self.collateral.name.clone(),
         )
-        .await?;
+        .await.expect("failed to retrieve liquidation swap route from ekubo");
 
+        tracing::info!("Retrieving Withdraw swap route from Ekubo ...");
         let withdraw_route: Vec<RouteNode> = if self.debt.name == "USDC" {
             vec![]
         } else {
             get_ekubo_route(
-                String::from("10"), // TODO: Investigate the behavior of this value with the Vesu Liquidate contract
-                self.debt.name.clone(),
+                minimum_collateral_to_retrieve.to_string(), // TODO: Investigate the behavior of this value with the Vesu Liquidate contract
+                self.debt.name.clone(), // not sure that its right
                 String::from("USDC"),
             )
-            .await?
+            .await.expect("failed to retrieve withdraw swap route from ekubo")
         };
 
+        tracing::info!("Creating new instance of liquidate contract ...");
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
 
         let liquidate_swap = Swap {
@@ -299,9 +303,12 @@ impl Position {
             limit_amount: u128::MAX,
         };
 
+        tracing::info!("        Data Conversion ...");
         let min_col_to_retrieve = big_decimal_to_felt(minimum_collateral_to_retrieve);
-        let debt_to_repay = big_decimal_to_felt(amount_to_liquidate);
+        // TODO: handle partial
+        let debt_to_repay = cainome::cairo_serde::U256::try_from((Felt::ZERO,Felt::ZERO)).expect("failed to parse debt to repay (zero)"); 
 
+        tracing::info!("Creating new instance of liquidate Params ...");
         let liquidate_params = LiquidateParams {
             pool_id: self.pool_id,
             collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
@@ -311,13 +318,15 @@ impl Position {
             min_collateral_to_receive: cainome::cairo_serde::U256::from_bytes_be(
                 &min_col_to_retrieve.to_bytes_be(),
             ),
+            debt_to_repay,
             liquidate_swap,
             withdraw_swap,
-            debt_to_repay: cainome::cairo_serde::U256::from_bytes_be(&debt_to_repay.to_bytes_be()),
         };
 
+        tracing::info!("Retrieving call object ...");
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
 
+        tracing::info!("All good !");
         Ok(vec![liquidate_call])
     }
 }

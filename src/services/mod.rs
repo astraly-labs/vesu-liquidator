@@ -42,7 +42,7 @@ pub async fn start_all_services(
             .to_str()
             .unwrap_or_default(),
     );
-    let (last_block_indexed, _) = storage.load().await?;
+    let (last_block_indexed, _) = storage.load().await.expect("failed to load storage");
 
     // TODO: Add force start from staring block in cli
     let starting_block = cmp::max(run_cmd.starting_block, last_block_indexed);

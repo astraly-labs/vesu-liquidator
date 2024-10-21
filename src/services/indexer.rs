@@ -119,7 +119,7 @@ impl IndexerService {
                                         Some(hdr) => hdr.block_number,
                                         None => 0,
                                     };
-                                    self.create_position_from_event(block_number, event).await?;
+                                    self.create_position_from_event(block_number, event).await.expect("failed to create position from event");
                                 }
                             }
                         }
@@ -161,7 +161,7 @@ impl IndexerService {
 
         // Create the new position & update the fields.
         if let Some(mut new_position) = Position::from_event(&self.config, &event.keys) {
-            new_position = self.update_position(new_position).await?;
+            new_position = self.update_position(new_position).await.expect("failed to update position from new position");
             if new_position.is_closed() {
                 return Ok(());
             }
@@ -183,8 +183,8 @@ impl IndexerService {
 
     /// Update a position given the latest data available.
     async fn update_position(&self, mut position: Position) -> Result<Position> {
-        position = self.update_position_amounts(position).await?;
-        position = self.update_position_lltv(position).await?;
+        position = self.update_position_amounts(position).await.expect("failed to update position amount");
+        position = self.update_position_lltv(position).await.expect("failed to update position lltv");
         Ok(position)
     }
 
@@ -198,7 +198,7 @@ impl IndexerService {
         let result = self
             .rpc_client
             .call(get_position_request, BlockId::Tag(BlockTag::Pending))
-            .await?;
+            .await.expect("failed to call get position request from RPC");
 
         let new_collateral = BigDecimal::new(result[4].to_bigint(), position.collateral.decimals);
         let new_debt = BigDecimal::new(result[6].to_bigint(), position.debt.decimals);
@@ -218,7 +218,7 @@ impl IndexerService {
         let ltv_config = self
             .rpc_client
             .call(ltv_config_request, BlockId::Tag(BlockTag::Pending))
-            .await?;
+            .await.expect("failed to retrieve ltv config");
 
         position.lltv = BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS);
         Ok(position)

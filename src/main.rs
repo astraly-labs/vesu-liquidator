@@ -28,15 +28,15 @@ async fn main() -> Result<()> {
     setup_tracing();
 
     let mut run_cmd = RunCmd::parse();
-    run_cmd.validate()?;
+    run_cmd.validate().expect("error while parsing CLI");
 
     print_app_title(run_cmd.account_params.account_address, run_cmd.network);
 
     let rpc_url = run_cmd.rpc_url.clone();
     let rpc_client = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));
-    let account = StarknetAccount::from_cli(rpc_client.clone(), run_cmd.clone())?;
+    let account = StarknetAccount::from_cli(rpc_client.clone(), run_cmd.clone()).expect("failed to retrieve Starknet account");
 
-    let config = Config::from_cli(&run_cmd)?;
+    let config = Config::from_cli(&run_cmd).expect("failed to retrieve config from cli");
     start_all_services(config, rpc_client, account, run_cmd).await
 }
 

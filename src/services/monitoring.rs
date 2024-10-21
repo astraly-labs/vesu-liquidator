@@ -61,7 +61,7 @@ impl MonitoringService {
             tokio::select! {
                 // Monitor the positions every N seconds
                 _ = update_interval.tick() => {
-                    self.monitor_positions_liquidability().await?;
+                    self.monitor_positions_liquidability().await.expect("failed to monitor position liquidability");
                 }
 
                 // Insert the new positions indexed by the IndexerService
@@ -69,7 +69,7 @@ impl MonitoringService {
                     match maybe_position {
                         Some((block_number, new_position)) => {
                             self.positions.0.write().await.insert(new_position.key(), new_position);
-                            self.storage.save(self.positions.0.read().await.clone(), block_number).await?;
+                            self.storage.save(self.positions.0.read().await.clone(), block_number).await.expect("failed to save position");
                         }
                         None => {
                             return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));
@@ -95,7 +95,7 @@ impl MonitoringService {
                     "[🔭 Monitoring] Liquidatable position found #{}!",
                     position.key()
                 );
-                let _profit_made = self.try_to_liquidate_position(position).await?;
+                let _profit_made = self.try_to_liquidate_position(position).await.expect("failed to liquidate position");
             }
         }
         tracing::info!("[🔭 Monitoring] 🤨 They're good.. for now...");
@@ -105,7 +105,7 @@ impl MonitoringService {
     /// Check if a position is liquidable, computes the profitability and if it's worth it
     /// liquidate it.
     async fn try_to_liquidate_position(&self, position: &Position) -> Result<BigDecimal> {
-        let (profit, txs) = self.compute_profitability(position).await?;
+        let (profit, txs) = self.compute_profitability(position).await.expect("failed to compute profitability");
         // TODO: Support minimum profit value with a default & from CLI
         if profit > BigDecimal::from(0) {
             tracing::info!(
@@ -113,9 +113,9 @@ impl MonitoringService {
                 profit,
                 position.debt.name
             );
-            let tx_hash_felt = self.account.execute_txs(&txs).await?;
+            let tx_hash_felt = self.account.execute_txs(&txs).await.expect("failed to execute txs");
             let tx_hash = tx_hash_felt.to_string();
-            self.wait_for_tx_to_be_accepted(&tx_hash).await?;
+            self.wait_for_tx_to_be_accepted(&tx_hash).await.expect("Tx wasn't accepted");
             tracing::info!(
                 "[🔭 Monitoring] ✅ Liquidated position #{}! (TX #{})",
                 position.key(),
@@ -135,18 +135,18 @@ impl MonitoringService {
     async fn compute_profitability(&self, position: &Position) -> Result<(BigDecimal, Vec<Call>)> {
         let (liquidable_amount_as_debt_asset, liquidable_amount_as_collateral_asset) = position
             .liquidable_amount(self.config.liquidation_mode, &self.latest_oracle_prices)
-            .await?;
+            .await.expect("failed to retrieve liquidable amount");
 
         let liquidation_factor = position
             .fetch_liquidation_factors(&self.config, self.rpc_client.clone())
             .await;
 
-        let debt_to_liquidate = match self.config.liquidation_mode {
-            crate::config::LiquidationMode::Full => BigDecimal::from(0),
-            crate::config::LiquidationMode::Partial => {
-                liquidable_amount_as_debt_asset.clone() * liquidation_factor.clone()
-            }
-        };
+        // TODO: handle this properly
+        // let debt_to_liquidate = match self.config.liquidation_mode {
+        //     crate::config::LiquidationMode::Full => BigDecimal::from(0),
+        //     crate::config::LiquidationMode::Partial => liquidable_amount_as_debt_asset.clone(),
+        // };
+
         let min_collateral_to_receive =
             liquidable_amount_as_collateral_asset * liquidation_factor.clone();
         let simulated_profit: BigDecimal =
@@ -155,11 +155,11 @@ impl MonitoringService {
             .get_liquidation_txs(
                 &self.account,
                 self.config.liquidate_address,
-                debt_to_liquidate,
+                liquidable_amount_as_debt_asset.clone(),
                 min_collateral_to_receive,
             )
-            .await?;
-        let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await?;
+            .await.expect("failed to retrieve liquidation tx");
+        let execution_fees = self.account.estimate_fees_cost(&liquidation_txs).await.expect("failed to retrieve execution fees");
         let slippage = BigDecimal::new(BigInt::from(5), 2);
         let slippage_factor = BigDecimal::from(1) - slippage;
 
@@ -171,8 +171,8 @@ impl MonitoringService {
 
     /// Waits for a TX to be accepted on-chain.
     pub async fn wait_for_tx_to_be_accepted(&self, tx_hash: &str) -> Result<()> {
-        let tx_hash = Felt::from_hex(tx_hash)?;
-        wait_for_tx(tx_hash, self.rpc_client.clone()).await?;
+        let tx_hash = Felt::from_hex(tx_hash).expect("failed to retrieve tx hash on chain");
+        wait_for_tx(tx_hash, self.rpc_client.clone()).await.expect("tx wasn't accepted");
         Ok(())
     }
 }
