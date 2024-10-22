@@ -47,7 +47,7 @@ impl OracleService {
         let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
             tracing::info!("[🔮 Oracle] Fetching latest prices...");
-            self.update_prices().await?;
+            self.update_prices().await.expect("failed to update price");
             tracing::info!("[🔮 Oracle] ✅ Fetched all new prices");
             tokio::time::sleep(sleep_duration).await;
         }
@@ -130,16 +130,16 @@ impl PragmaOracle {
             .get(url)
             .header("x-api-key", &self.api_key)
             .send()
-            .await?;
+            .await.expect("failed to reach pragma oracle");
         let response_status = response.status();
-        let response_text = response.text().await?;
+        let response_text = response.text().await.expect("failed to parse response as text");
         if response_status != StatusCode::OK {
             tracing::error!("⛔ Oracle Request failed with: {:?}", response_text);
             return Err(anyhow!(
                 "Oracle request failed with status {response_status}"
             ));
         }
-        let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
+        let oracle_response: OracleApiResponse = serde_json::from_str(&response_text).expect("failed to serialize from string");
         let asset_price = hex_str_to_big_decimal(&oracle_response.price, oracle_response.decimals);
         Ok(asset_price)
     }

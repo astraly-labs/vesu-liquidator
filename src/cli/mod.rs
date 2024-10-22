@@ -64,7 +64,7 @@ const FIRST_SEPOLIA_BLOCK: u64 = 77860;
 
 impl RunCmd {
     pub fn validate(&mut self) -> Result<()> {
-        self.account_params.validate()?;
+        self.account_params.validate().expect("failed to validate account parameters");
         if self.pragma_api_key.is_none() {
             self.pragma_api_key = env::var("PRAGMA_API_KEY").ok();
         }

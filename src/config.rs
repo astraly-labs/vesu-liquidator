@@ -63,8 +63,8 @@ impl Config {
         config_path: &PathBuf,
     ) -> Result<Self> {
         let raw_config: RawConfig = {
-            let config_str = fs::read_to_string(config_path)?;
-            serde_yaml::from_str(&config_str)?
+            let config_str = fs::read_to_string(config_path).expect("failed to read config file");
+            serde_yaml::from_str(&config_str).expect("failed to serialize config file")
         };
 
         let network_config = match network {
@@ -74,9 +74,9 @@ impl Config {
             NetworkName::Devnet => &raw_config.vesu.mainnet,
         };
 
-        let singleton_address = Felt::from_hex(&network_config.singleton_address)?;
-        let extension_address = Felt::from_hex(&network_config.extension_address)?;
-        let liquidate_address = Felt::from_hex(&network_config.liquidate_address)?;
+        let singleton_address = Felt::from_hex(&network_config.singleton_address).expect("failed to parse singleton address");
+        let extension_address = Felt::from_hex(&network_config.extension_address).expect("failed to parse extension address");
+        let liquidate_address = Felt::from_hex(&network_config.liquidate_address).expect("failed to parse liquidate address");
 
         let assets = raw_config.assets;
         let asset_map = assets
