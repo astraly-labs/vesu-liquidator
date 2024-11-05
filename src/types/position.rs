@@ -217,7 +217,7 @@ impl Position {
                 token: cainome::cairo_serde::ContractAddress(self.debt.address),
                 amount: I129_ZERO,
             },
-            limit_amount: 0,
+            limit_amount: u128::MAX,
         };
 
         let liquidate_params = LiquidateParams {
@@ -235,9 +235,11 @@ impl Position {
                     token: cainome::cairo_serde::ContractAddress(self.debt.address),
                     amount: I129_ZERO,
                 },
-                limit_amount: 0,
+                limit_amount: u128::MAX,
             },
         };
+
+        tracing::info!("liquidate: {:?}", liquidate_params);
 
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);

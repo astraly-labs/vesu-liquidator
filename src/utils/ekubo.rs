@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, ToPrimitive};
 use cainome::cairo_serde::{ContractAddress, U256};
 use serde_json::Value;
 use starknet::core::types::Felt;
@@ -15,9 +15,9 @@ pub const UNIQUE_ROUTE_WEIGHT: I129 = I129 {
 const EKUBO_QUOTE_ENDPOINT: &str = "https://mainnet-api.ekubo.org/quote";
 const QUOTE_QUERY_PARAMS: &str = "maxHops=0&maxSplits=0";
 
-const MAX_SQRT_RATIO_LIMIT: U256 = U256 {
-    low: 147820330697885451836970967903133202728,
-    high: 18446739710271796309,
+const MIN_SQRT_RATIO: U256 = U256 {
+    low: 18446748437148339061,
+    high: 0,
 };
 
 pub async fn get_ekubo_route(
@@ -25,7 +25,7 @@ pub async fn get_ekubo_route(
     from_token: String,
     to_token: String,
 ) -> Result<Vec<RouteNode>> {
-    let amount_as_string = format!("-{}", amount);
+    let amount_as_string = format!("-{}", amount.to_u128().unwrap());
     let ekubo_api_endpoint = format!(
         "{EKUBO_QUOTE_ENDPOINT}/{amount_as_string}/{from_token}/{to_token}?{QUOTE_QUERY_PARAMS}"
     );
@@ -85,7 +85,7 @@ pub async fn get_ekubo_route(
                                 .context("extension is not a string")?,
                         )?),
                     },
-                    sqrt_ratio_limit: MAX_SQRT_RATIO_LIMIT,
+                    sqrt_ratio_limit: MIN_SQRT_RATIO,
                     skip_ahead: node["skip_ahead"]
                         .as_u64()
                         .context("skip_ahead is not a u64")?
