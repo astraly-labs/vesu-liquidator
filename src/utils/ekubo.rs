@@ -1,4 +1,4 @@
-use anyhow::{Context, Ok, Result};
+use anyhow::{Context, Result};
 use cainome::cairo_serde::{ContractAddress, U256};
 use serde_json::Value;
 use starknet::core::types::Felt;
@@ -22,62 +22,76 @@ pub async fn get_ekubo_route(
     }
 
     let response_text = response.text().await?;
+    let json_value: Value = serde_json::from_str(&response_text).unwrap();
 
-    let json_value: Value = serde_json::from_str(&response_text)?;
-
-    // We have to deserialize by hand into a Vec of [RouteNode].
-    // TODO: Make this cleaner!
-    let route = json_value["route"]
+    // Get all routes from all splits and flatten them into a single Vec
+    let routes = json_value["splits"]
         .as_array()
-        .context("'route' is not an array")?
+        .context("'splits' is not an array")?
         .iter()
-        .map(|node| {
-            let pool_key = &node["pool_key"];
-            Ok(RouteNode {
-                pool_key: PoolKey {
-                    token0: ContractAddress(Felt::from_hex(
-                        pool_key["token0"]
-                            .as_str()
-                            .context("token0 is not a string")?,
-                    )?),
-                    token1: ContractAddress(Felt::from_hex(
-                        pool_key["token1"]
-                            .as_str()
-                            .context("token1 is not a string")?,
-                    )?),
-                    fee: u128::from_str_radix(
-                        pool_key["fee"]
-                            .as_str()
-                            .context("fee is not a string")?
-                            .trim_start_matches("0x"),
-                        16,
-                    )
-                    .context("Failed to parse fee as u128")?,
-                    tick_spacing: pool_key["tick_spacing"]
-                        .as_u64()
-                        .context("tick_spacing is not a u64")?
-                        as u128,
-                    extension: ContractAddress(Felt::from_hex(
-                        pool_key["extension"]
-                            .as_str()
-                            .context("extension is not a string")?,
-                    )?),
-                },
-                sqrt_ratio_limit: U256::from_bytes_be(
-                    &Felt::from_hex(
-                        node["sqrt_ratio_limit"]
-                            .as_str()
-                            .context("sqrt_ratio_limit is not a string")?,
-                    )
-                    .unwrap()
-                    .to_bytes_be(),
-                ),
-                skip_ahead: node["skip_ahead"]
-                    .as_u64()
-                    .context("skip_ahead is not a u64")? as u128,
-            })
+        .flat_map(|split| {
+            split["route"]
+                .as_array()
+                .context("'route' is not an array")
+                .ok()
+                .unwrap()
+                .iter()
+                .map(|node| {
+                    let pool_key = &node["pool_key"];
+                    Ok(RouteNode {
+                        pool_key: PoolKey {
+                            token0: ContractAddress(Felt::from_hex(
+                                pool_key["token0"]
+                                    .as_str()
+                                    .context("token0 is not a string")
+                                    .unwrap(),
+                            )?),
+                            token1: ContractAddress(Felt::from_hex(
+                                pool_key["token1"]
+                                    .as_str()
+                                    .context("token1 is not a string")
+                                    .unwrap(),
+                            )?),
+                            fee: u128::from_str_radix(
+                                pool_key["fee"]
+                                    .as_str()
+                                    .context("fee is not a string")
+                                    .unwrap()
+                                    .trim_start_matches("0x"),
+                                16,
+                            )
+                            .context("Failed to parse fee as u128")?,
+                            tick_spacing: pool_key["tick_spacing"]
+                                .as_u64()
+                                .context("tick_spacing is not a u64")
+                                .unwrap() as u128,
+                            extension: ContractAddress(Felt::from_hex(
+                                pool_key["extension"]
+                                    .as_str()
+                                    .context("extension is not a string")
+                                    .unwrap(),
+                            )?),
+                        },
+                        sqrt_ratio_limit: U256::from_bytes_be(
+                            &Felt::from_hex(
+                                node["sqrt_ratio_limit"]
+                                    .as_str()
+                                    .context("sqrt_ratio_limit is not a string")
+                                    .unwrap(),
+                            )
+                            .unwrap()
+                            .to_bytes_be(),
+                        ),
+                        skip_ahead: node["skip_ahead"]
+                            .as_u64()
+                            .context("skip_ahead is not a u64")
+                            .unwrap() as u128,
+                    })
+                })
+                .collect::<Vec<Result<RouteNode>>>()
         })
-        .collect::<Result<Vec<RouteNode>>>()?;
+        .collect::<Result<Vec<RouteNode>>>()
+        .unwrap();
 
-    Ok(route)
+    Ok(routes)
 }

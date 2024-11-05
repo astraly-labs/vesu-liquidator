@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Ok, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
-use bigdecimal::{BigDecimal, FromPrimitive};
+use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::{BlockId, BlockTag, FunctionCall};
@@ -259,43 +259,28 @@ impl Position {
         // The amount is in negative because contract use a inverted route to ensure that we get the exact amount of debt token
         let liquidate_token = TokenAmount {
             token: cainome::cairo_serde::ContractAddress(self.debt.address),
-            amount: I129 { mag: 0, sign: true },
-        };
-
-        let withdraw_token = TokenAmount {
-            token: cainome::cairo_serde::ContractAddress(self.collateral.address),
-            amount: I129 { mag: 0, sign: true },
+            amount: I129 {
+                mag: self.debt.amount.to_u128().unwrap(),
+                sign: true,
+            },
         };
 
         // As mentionned before the route is inverted for precision purpose
         let liquidate_route: Vec<RouteNode> = get_ekubo_route(
-            String::from("10"), // TODO: Investigate the behavior of this value with the Vesu Liquidate contract
+            String::from(format!("{}", self.debt.amount.to_string())),
             self.debt.name.clone(),
             self.collateral.name.clone(),
         )
-        .await?;
+        .await
+        .unwrap();
 
-        let withdraw_route: Vec<RouteNode> = if self.debt.name == "USDC" {
-            vec![]
-        } else {
-            get_ekubo_route(
-                String::from("10"), // TODO: Investigate the behavior of this value with the Vesu Liquidate contract
-                self.debt.name.clone(),
-                String::from("USDC"),
-            )
-            .await?
-        };
+        tracing::info!("Route: {:?}", liquidate_route);
 
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
 
         let liquidate_swap = Swap {
             route: liquidate_route,
             token_amount: liquidate_token,
-            limit_amount: u128::MAX,
-        };
-        let withdraw_swap = Swap {
-            route: withdraw_route,
-            token_amount: withdraw_token,
             limit_amount: u128::MAX,
         };
 
@@ -311,9 +296,15 @@ impl Position {
             min_collateral_to_receive: cainome::cairo_serde::U256::from_bytes_be(
                 &min_col_to_retrieve.to_bytes_be(),
             ),
-            liquidate_swap,
-            withdraw_swap,
+            liquidate_swap: vec![liquidate_swap], // TOOD: Not sure
+            withdraw_swap: vec![],
             debt_to_repay: cainome::cairo_serde::U256::from_bytes_be(&debt_to_repay.to_bytes_be()),
+            // TODO: Assert weights are corrects
+            liquidate_swap_weights: vec![I129 {
+                sign: false,
+                mag: 1_000_000_000_000_000_000,
+            }],
+            withdraw_swap_weights: vec![],
         };
 
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);

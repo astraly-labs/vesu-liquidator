@@ -67,7 +67,7 @@ impl StarknetAccount {
 
     /// Executes a set of transactions and returns the transaction hash.
     pub async fn execute_txs(&self, txs: &[Call]) -> Result<Felt> {
-        let res = self.0.execute_v1(txs.to_vec()).send().await?;
+        let res = self.0.execute_v1(txs.to_vec()).send().await.unwrap();
         Ok(res.transaction_hash)
     }
 }

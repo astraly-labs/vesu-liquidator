@@ -3,7 +3,7 @@ pub mod monitoring;
 pub mod oracle;
 
 use oracle::{LatestOraclePrices, OracleService};
-use std::{cmp, sync::Arc, time::Duration};
+use std::{cmp, sync::Arc};
 use url::Url;
 
 use anyhow::{Context, Result};
@@ -67,7 +67,7 @@ pub async fn start_all_services(
     );
 
     tracing::info!("⏳ Waiting a few moment for the indexer to fetch positions...\n");
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    // tokio::time::sleep(Duration::from_secs(10)).await;
 
     tracing::info!("🧩 Starting the monitoring service...\n");
     let monitoring_handle = start_monitoring_service(
