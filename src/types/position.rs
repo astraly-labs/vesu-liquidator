@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, Context, Ok, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::num_bigint::BigInt;
 use bigdecimal::{BigDecimal, FromPrimitive};
@@ -221,7 +221,7 @@ impl Position {
         let ltv_config = rpc_client
             .call(liquidation_config_request, BlockId::Tag(BlockTag::Pending))
             .await
-            .expect("failed to retrieve");
+            .expect("failed to retrieve ltv");
         BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
     }
 
@@ -275,7 +275,7 @@ impl Position {
             self.debt.name.clone(),
             self.collateral.name.clone(),
         )
-        .await.expect("failed to retrieve liquidation swap route from ekubo");
+        .await.context("failed to retrieve liquidation swap route from ekubo")?;
 
         tracing::info!("Retrieving Withdraw swap route from Ekubo ...");
         let withdraw_route: Vec<RouteNode> = if self.debt.name == "USDC" {
@@ -286,7 +286,7 @@ impl Position {
                 self.debt.name.clone(), // not sure that its right
                 String::from("USDC"),
             )
-            .await.expect("failed to retrieve withdraw swap route from ekubo")
+            .await.context("failed to retrieve withdraw swap route from ekubo")?
         };
 
         tracing::info!("Creating new instance of liquidate contract ...");
@@ -306,7 +306,7 @@ impl Position {
         tracing::info!("        Data Conversion ...");
         let min_col_to_retrieve = big_decimal_to_felt(minimum_collateral_to_retrieve);
         // TODO: handle partial
-        let debt_to_repay = cainome::cairo_serde::U256::try_from((Felt::ZERO,Felt::ZERO)).expect("failed to parse debt to repay (zero)"); 
+        let debt_to_repay = cainome::cairo_serde::U256::try_from((Felt::ZERO,Felt::ZERO)).context("failed to parse debt to repay (zero)")?; 
 
         tracing::info!("Creating new instance of liquidate Params ...");
         let liquidate_params = LiquidateParams {
