@@ -25,7 +25,7 @@ pub async fn get_ekubo_route(
     from_token: String,
     to_token: String,
 ) -> Result<Vec<RouteNode>> {
-    let amount_as_string = format!("-{}", amount.to_u128().unwrap());
+    let amount_as_string = format!("-{}", amount.to_u128().unwrap() + 1);
     let ekubo_api_endpoint = format!(
         "{EKUBO_QUOTE_ENDPOINT}/{amount_as_string}/{from_token}/{to_token}?{QUOTE_QUERY_PARAMS}"
     );

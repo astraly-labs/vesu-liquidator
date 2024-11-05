@@ -25,7 +25,7 @@ use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 use super::account::StarknetAccount;
 
 /// Threshold for which we consider a position almost liquidable.
-const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.02;
+const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.035;
 
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
@@ -238,8 +238,6 @@ impl Position {
                 limit_amount: u128::MAX,
             },
         };
-
-        tracing::info!("liquidate: {:?}", liquidate_params);
 
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
