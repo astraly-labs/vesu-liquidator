@@ -206,10 +206,12 @@ impl Position {
     ) -> Result<Call> {
         let route: Vec<RouteNode> = get_ekubo_route(
             self.debt.amount.clone(),
-            self.collateral.name.clone(),
             self.debt.name.clone(),
+            self.collateral.name.clone(),
         )
         .await?;
+
+        tracing::info!("{:?}", route);
 
         let liquidate_swap = Swap {
             route,
