@@ -57,7 +57,7 @@ impl MonitoringService {
 
         loop {
             tokio::select! {
-                // Monitor the positions every N seconds
+                // Monitor the positions every [update_interval] seconds
                 _ = update_interval.tick() => {
                     self.monitor_positions_liquidability().await?;
                 }
@@ -79,8 +79,6 @@ impl MonitoringService {
     }
 
     /// Update all monitored positions and check if it's worth to liquidate any.
-    /// TODO: Check issue for multicall update:
-    /// https://github.com/astraly-labs/vesu-liquidator/issues/12
     async fn monitor_positions_liquidability(&self) -> Result<()> {
         let monitored_positions = self.positions.0.read().await;
         if monitored_positions.is_empty() {
