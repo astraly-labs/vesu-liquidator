@@ -4,18 +4,26 @@ use cainome::cairo_serde::{ContractAddress, U256};
 use serde_json::Value;
 use starknet::core::types::Felt;
 
-use crate::bindings::liquidate::{PoolKey, RouteNode};
+use crate::bindings::liquidate::{PoolKey, RouteNode, I129};
 
-pub const SCALE_128: u128 = 1_000_000_000_000_000_000;
+pub const ROUTE_WEIGHT: I129 = I129 {
+    mag: SCALE_128,
+    sign: false,
+};
+
+const EKUBO_QUOTE_ENDPOINT: &str = "https://mainnet-api.ekubo.org/quote";
+const QUOTE_QUERY_PARAMS: &str = "maxHops=0&maxSplits=0";
+const SCALE_128: u128 = 1_000_000_000_000_000_000;
 
 pub async fn get_ekubo_route(
     amount: BigDecimal,
     from_token: String,
     to_token: String,
 ) -> Result<Vec<RouteNode>> {
-    let amount_as_string = format!("{}", amount);
-    let ekubo_api_endpoint =
-        format!("https://mainnet-api.ekubo.org/quote/{amount_as_string}/{from_token}/{to_token}?maxSplits=0");
+    let amount_as_string = format!("-{}", amount);
+    let ekubo_api_endpoint = format!(
+        "{EKUBO_QUOTE_ENDPOINT}/{amount_as_string}/{from_token}/{to_token}?{QUOTE_QUERY_PARAMS}"
+    );
     tracing::info!("{}", ekubo_api_endpoint);
     let http_client = reqwest::Client::new();
 
@@ -91,7 +99,5 @@ pub async fn get_ekubo_route(
 
         routes.extend(split_routes);
     }
-
-    // Adjust sum if some rounding errors occured
     Ok(routes)
 }
