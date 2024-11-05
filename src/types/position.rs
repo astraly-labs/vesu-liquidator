@@ -21,7 +21,7 @@ use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::apply_overhead;
 use crate::utils::constants::{I129_ZERO, U256_ZERO, VESU_RESPONSE_DECIMALS};
-use crate::utils::ekubo::{get_ekubo_route, ROUTE_WEIGHT};
+use crate::utils::ekubo::{get_ekubo_route, UNIQUE_ROUTE_WEIGHT};
 use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 
 use super::account::StarknetAccount;
@@ -246,13 +246,13 @@ impl Position {
         hasher.finish()
     }
 
-    /// Returns the TX necessary to liquidate this position (approve + liquidate).
-    // See: https://github.com/vesuxyz/vesu-v1/blob/a2a59936988fcb51bc85f0eeaba9b87cf3777c49/src/singleton.cairo#L1624
-    pub async fn get_liquidation_txs(
+    /// Returns the TX necessary to liquidate this position using the Vesu Liquidate
+    /// contract.
+    pub async fn get_vesu_liquidate_tx(
         &self,
         account: &StarknetAccount,
         liquidate_contract: Felt,
-    ) -> Result<Vec<Call>> {
+    ) -> Result<Call> {
         let route: Vec<RouteNode> = get_ekubo_route(
             self.debt.amount.clone(),
             self.collateral.name.clone(),
@@ -278,7 +278,7 @@ impl Position {
             min_collateral_to_receive: U256_ZERO,
             debt_to_repay: U256_ZERO,
             liquidate_swap: vec![liquidate_swap],
-            liquidate_swap_weights: vec![ROUTE_WEIGHT],
+            liquidate_swap_weights: vec![UNIQUE_ROUTE_WEIGHT],
             withdraw_swap: vec![],
             withdraw_swap_weights: vec![],
         };
@@ -286,7 +286,7 @@ impl Position {
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
 
-        Ok(vec![liquidate_call])
+        Ok(liquidate_call)
     }
 }
 

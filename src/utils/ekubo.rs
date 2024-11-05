@@ -6,7 +6,7 @@ use starknet::core::types::Felt;
 
 use crate::bindings::liquidate::{PoolKey, RouteNode, I129};
 
-pub const ROUTE_WEIGHT: I129 = I129 {
+pub const UNIQUE_ROUTE_WEIGHT: I129 = I129 {
     mag: SCALE_128,
     sign: false,
 };
