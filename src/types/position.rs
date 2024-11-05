@@ -14,13 +14,13 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount, I129};
+use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount};
 
 use crate::config::{Config, LiquidationMode, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::apply_overhead;
-use crate::utils::constants::VESU_RESPONSE_DECIMALS;
+use crate::utils::constants::{I129_ZERO, U256_ZERO, VESU_RESPONSE_DECIMALS};
 use crate::utils::ekubo::{get_ekubo_route, ROUTE_WEIGHT};
 use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 
@@ -264,10 +264,7 @@ impl Position {
             route,
             token_amount: TokenAmount {
                 token: cainome::cairo_serde::ContractAddress(self.debt.address),
-                amount: I129 {
-                    mag: 0,
-                    sign: false,
-                },
+                amount: I129_ZERO,
             },
             limit_amount: 0,
         };
@@ -278,8 +275,8 @@ impl Position {
             debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
             user: cainome::cairo_serde::ContractAddress(self.user_address),
             recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
-            min_collateral_to_receive: cainome::cairo_serde::U256 { low: 0, high: 0 },
-            debt_to_repay: cainome::cairo_serde::U256 { low: 0, high: 0 },
+            min_collateral_to_receive: U256_ZERO,
+            debt_to_repay: U256_ZERO,
             liquidate_swap: vec![liquidate_swap],
             liquidate_swap_weights: vec![ROUTE_WEIGHT],
             withdraw_swap: vec![],
