@@ -6,6 +6,7 @@ use starknet::core::types::Felt;
 
 use crate::bindings::liquidate::{PoolKey, RouteNode, I129};
 
+const SCALE_128: u128 = 1_000_000_000_000_000_000;
 pub const UNIQUE_ROUTE_WEIGHT: I129 = I129 {
     mag: SCALE_128,
     sign: false,
@@ -13,7 +14,6 @@ pub const UNIQUE_ROUTE_WEIGHT: I129 = I129 {
 
 const EKUBO_QUOTE_ENDPOINT: &str = "https://mainnet-api.ekubo.org/quote";
 const QUOTE_QUERY_PARAMS: &str = "maxHops=0&maxSplits=0";
-const SCALE_128: u128 = 1_000_000_000_000_000_000;
 
 pub async fn get_ekubo_route(
     amount: BigDecimal,
