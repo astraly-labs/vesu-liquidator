@@ -19,7 +19,7 @@ use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::constants::{I129_ZERO, U256_ZERO, VESU_RESPONSE_DECIMALS};
-use crate::utils::ekubo::{get_ekubo_route, UNIQUE_ROUTE_WEIGHT};
+use crate::utils::ekubo::get_ekubo_route;
 use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 
 use super::account::StarknetAccount;
@@ -211,8 +211,6 @@ impl Position {
         )
         .await?;
 
-        tracing::info!("{:?}", route);
-
         let liquidate_swap = Swap {
             route,
             token_amount: TokenAmount {
@@ -230,10 +228,15 @@ impl Position {
             recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
             min_collateral_to_receive: U256_ZERO,
             debt_to_repay: U256_ZERO,
-            liquidate_swap: vec![liquidate_swap],
-            liquidate_swap_weights: vec![UNIQUE_ROUTE_WEIGHT],
-            withdraw_swap: vec![],
-            withdraw_swap_weights: vec![],
+            liquidate_swap,
+            withdraw_swap: Swap {
+                route: vec![],
+                token_amount: TokenAmount {
+                    token: cainome::cairo_serde::ContractAddress(self.debt.address),
+                    amount: I129_ZERO,
+                },
+                limit_amount: 0,
+            },
         };
 
         let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());

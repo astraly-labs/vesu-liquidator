@@ -2,7 +2,7 @@ vesu:
   mainnet:
     singleton_address: "0x02545b2e5d519fc230e9cd781046d3a64e092114f07e44771e0d719d148725ef"
     extension_address: "0x2334189e831d804d4a11d3f71d4a982ec82614ac12ed2e9ca2f8da4e6374fa"
-    liquidate_address: "0x016ee9b20d1837104eb8b2f4d3c15a22cfbcea7a80ccc6e42398041518adde66"
+    liquidate_address: "0x7d166b6792efbb1cf5eb58bdf05ba8b733ce90e6fa449bc92060ffffe6bfb55"
 
   sepolia:
     singleton_address: "0x69d0eca40cb01eda7f3d76281ef524cecf8c35f4ca5acc862ff128e7432964b"

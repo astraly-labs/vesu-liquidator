@@ -15,6 +15,11 @@ pub const UNIQUE_ROUTE_WEIGHT: I129 = I129 {
 const EKUBO_QUOTE_ENDPOINT: &str = "https://mainnet-api.ekubo.org/quote";
 const QUOTE_QUERY_PARAMS: &str = "maxHops=0&maxSplits=0";
 
+const MAX_SQRT_RATIO_LIMIT: U256 = U256 {
+    low: 147820330697885451836970967903133202728,
+    high: 18446739710271796309,
+};
+
 pub async fn get_ekubo_route(
     amount: BigDecimal,
     from_token: String,
@@ -80,15 +85,7 @@ pub async fn get_ekubo_route(
                                 .context("extension is not a string")?,
                         )?),
                     },
-                    sqrt_ratio_limit: U256::from_bytes_be(
-                        &Felt::from_hex(
-                            node["sqrt_ratio_limit"]
-                                .as_str()
-                                .context("sqrt_ratio_limit is not a string")?,
-                        )
-                        .unwrap()
-                        .to_bytes_be(),
-                    ),
+                    sqrt_ratio_limit: MAX_SQRT_RATIO_LIMIT,
                     skip_ahead: node["skip_ahead"]
                         .as_u64()
                         .context("skip_ahead is not a u64")?
