@@ -36,6 +36,7 @@ docker run --rm -it \
   --rpc-url <RPC_URL> \
   --starting-block <BLOCK_NUMBER> \
   --pragma-api-base-url <PRAGMA_API_BASE_URL>
+  --storage-path ./vesu.json
 ```
 
 For more options, run:
@@ -68,6 +69,7 @@ docker run --rm -it \
   --rpc-url <RPC_URL> \
   --starting-block <BLOCK_NUMBER> \
   --pragma-api-base-url <PRAGMA_API_BASE_URL>
+  --storage-path ./vesu.json # persistent indexer storage into a file
 ```
 
 ### Prerequisites
