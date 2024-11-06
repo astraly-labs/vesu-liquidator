@@ -85,10 +85,7 @@ impl IndexerService {
 
         let mut reached_pending_block: bool = false;
 
-        config_client
-            .send(self.stream_config.clone())
-            .await
-            .unwrap();
+        config_client.send(self.stream_config.clone()).await?;
 
         let mut stream = ClientBuilder::default()
             .with_bearer_token(Some(self.apibara_api_key.clone()))
