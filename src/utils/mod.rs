@@ -1,3 +1,8 @@
+pub mod constants;
+pub mod conversions;
+pub mod ekubo;
+pub mod services;
+
 use std::{sync::Arc, time::Duration};
 
 use bigdecimal::{num_bigint::BigInt, BigDecimal};
@@ -6,10 +11,6 @@ use starknet::{
     core::types::{Felt, TransactionFinalityStatus},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
-
-pub mod constants;
-pub mod conversions;
-pub mod ekubo;
 
 /// Apply a small overhead of 2% to the provided number.
 pub fn apply_overhead(num: BigDecimal) -> BigDecimal {
@@ -30,7 +31,7 @@ pub fn setup_tracing() {
 
 pub async fn wait_for_tx(
     tx_hash: Felt,
-    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+    rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
 ) -> anyhow::Result<()> {
     let mut retries = 0;
     let duration_to_wait_between_polling = Duration::from_secs(INTERVAL_CHECK_TX_FINALITY);

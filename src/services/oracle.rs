@@ -1,24 +1,40 @@
 use std::sync::Arc;
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use bigdecimal::BigDecimal;
+use dashmap::DashMap;
 use futures_util::future::join_all;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use strum::Display;
-use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 use url::Url;
 
 use crate::cli::NetworkName;
+use crate::utils::services::Service;
 use crate::{config::Config, utils::conversions::hex_str_to_big_decimal};
 
 const USD_ASSET: &str = "usd";
 const PRICES_UPDATE_INTERVAL: u64 = 30; // update every 30 seconds
 
+#[derive(Clone)]
 pub struct OracleService {
     oracle: PragmaOracle,
     latest_prices: LatestOraclePrices,
+}
+
+#[async_trait::async_trait]
+impl Service for OracleService {
+    async fn start(&mut self, join_set: &mut JoinSet<anyhow::Result<()>>) -> anyhow::Result<()> {
+        let service = self.clone();
+        join_set.spawn(async move {
+            tracing::info!("🧩 Indexer service started");
+            service.run_forever().await?;
+            Ok(())
+        });
+        Ok(())
+    }
 }
 
 impl OracleService {
@@ -31,8 +47,6 @@ impl OracleService {
         let network_to_fetch = match network {
             NetworkName::Sepolia => "sepolia",
             NetworkName::Mainnet => "mainnet",
-            #[cfg(feature = "testing")]
-            NetworkName::Devnet => "mainnet",
         };
         let oracle = PragmaOracle::new(api_url, api_key, network_to_fetch.to_string());
         Self {
@@ -43,7 +57,7 @@ impl OracleService {
 
     /// Starts the oracle service that will fetch the latest oracle prices every
     /// PRICES_UPDATE_INTERVAL seconds.
-    pub async fn start(self) -> Result<()> {
+    pub async fn run_forever(self) -> Result<()> {
         let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
             tracing::info!("[🔮 Oracle] Fetching latest prices...");
@@ -55,8 +69,12 @@ impl OracleService {
 
     /// Update all the monitored assets with their latest USD price asynchronously.
     async fn update_prices(&self) -> Result<()> {
-        let mut prices = self.latest_prices.0.lock().await;
-        let assets: Vec<String> = prices.keys().cloned().collect();
+        let assets: Vec<String> = self
+            .latest_prices
+            .0
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect();
 
         let fetch_tasks = assets.into_iter().map(|asset| {
             let oracle = self.oracle.clone();
@@ -70,7 +88,7 @@ impl OracleService {
 
         for (asset, price_result) in results {
             if let Ok(price) = price_result {
-                prices.insert(asset, price);
+                self.latest_prices.0.insert(asset, price);
             }
         }
 
@@ -80,15 +98,15 @@ impl OracleService {
 
 /// Map contaning the price in dollars for a list of monitored assets.
 #[derive(Default, Clone)]
-pub struct LatestOraclePrices(pub Arc<Mutex<HashMap<String, BigDecimal>>>);
+pub struct LatestOraclePrices(pub Arc<DashMap<String, BigDecimal>>);
 
 impl LatestOraclePrices {
     pub fn from_config(config: &Config) -> Self {
-        let mut prices = HashMap::new();
+        let prices = DashMap::new();
         for asset in config.assets.iter() {
             prices.insert(asset.ticker.to_lowercase(), BigDecimal::default());
         }
-        LatestOraclePrices(Arc::new(Mutex::new(prices)))
+        LatestOraclePrices(Arc::new(prices))
     }
 }
 

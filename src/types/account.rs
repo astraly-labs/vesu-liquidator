@@ -32,8 +32,6 @@ impl StarknetAccount {
         builder = match run_cmd.network {
             NetworkName::Mainnet => builder.on_mainnet(),
             NetworkName::Sepolia => builder.on_sepolia(),
-            #[cfg(feature = "testing")]
-            NetworkName::Devnet => builder.on_mainnet(),
         };
 
         builder = builder

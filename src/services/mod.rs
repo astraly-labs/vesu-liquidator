@@ -2,23 +2,21 @@ pub mod indexer;
 pub mod monitoring;
 pub mod oracle;
 
-use oracle::{LatestOraclePrices, OracleService};
-use std::{cmp, sync::Arc, time::Duration};
-use url::Url;
+use std::{cmp, sync::Arc};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
-use tokio::{
-    sync::mpsc::{self, Receiver, Sender},
-    task::JoinHandle,
-};
+use tokio::sync::mpsc;
+
+use oracle::{LatestOraclePrices, OracleService};
 
 use crate::{
-    cli::{NetworkName, RunCmd},
+    cli::RunCmd,
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
     storages::{json::JsonStorage, Storage},
     types::{account::StarknetAccount, position::Position},
+    utils::services::{Service, ServiceGroup},
 };
 
 /// Starts all the services needed by the Liquidator Bot.
@@ -44,120 +42,37 @@ pub async fn start_all_services(
     );
     let (last_block_indexed, _) = storage.load().await?;
 
-    // TODO: Add force start from staring block in cli
     let starting_block = cmp::max(run_cmd.starting_block, last_block_indexed);
     println!("  🥡 Starting from block {}\n\n", starting_block);
 
-    tracing::info!("🧩 Starting the indexer service...");
-    let indexer_handle = start_indexer_service(
+    let indexer_service = IndexerService::new(
         config.clone(),
-        rpc_client.clone(),
+        run_cmd.apibara_api_key.unwrap(),
         positions_sender,
         starting_block,
-        run_cmd.apibara_api_key.unwrap(),
     );
-
     let latest_oracle_prices = LatestOraclePrices::from_config(&config);
-    tracing::info!("🧩 Starting the oracle service...");
-    let oracle_handle = start_oracle_service(
+    let oracle_service = OracleService::new(
         run_cmd.pragma_api_base_url,
         run_cmd.pragma_api_key.unwrap(),
         latest_oracle_prices.clone(),
         run_cmd.network,
     );
-
-    tracing::info!("⏳ Waiting a few moment for the indexer to fetch positions...\n");
-    tokio::time::sleep(Duration::from_secs(10)).await;
-
-    tracing::info!("🧩 Starting the monitoring service...\n");
-    let monitoring_handle = start_monitoring_service(
-        config.clone(),
-        rpc_client.clone(),
-        account,
-        position_receiver,
-        latest_oracle_prices,
-        Box::new(storage),
-    );
-
-    // Wait for tasks to complete, and handle any errors
-    let (indexer_result, oracle_result, monitoring_result) =
-        tokio::try_join!(indexer_handle, oracle_handle, monitoring_handle)?;
-
-    // Handle results
-    indexer_result?;
-    oracle_result?;
-    monitoring_result?;
-    Ok(())
-}
-
-/// Starts the indexer service.
-fn start_indexer_service(
-    config: Config,
-    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-    positions_sender: Sender<(u64, Position)>,
-    starting_block: u64,
-    apibara_api_key: String,
-) -> JoinHandle<Result<()>> {
-    let indexer_service = IndexerService::new(
-        config,
-        rpc_client,
-        apibara_api_key,
-        positions_sender,
-        starting_block,
-    );
-
-    tokio::spawn(async move {
-        indexer_service
-            .start()
-            .await
-            .context("😱 Indexer service failed!")
-    })
-}
-
-/// Starts the oracle service.
-fn start_oracle_service(
-    pragma_api_base_url: Url,
-    pragma_api_key: String,
-    latest_oracle_prices: LatestOraclePrices,
-    network: NetworkName,
-) -> JoinHandle<Result<()>> {
-    let oracle_service = OracleService::new(
-        pragma_api_base_url,
-        pragma_api_key,
-        latest_oracle_prices,
-        network,
-    );
-
-    tokio::spawn(async move {
-        oracle_service
-            .start()
-            .await
-            .context("😱 Oracle service error")
-    })
-}
-
-/// Starts the monitoring service.
-fn start_monitoring_service(
-    config: Config,
-    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-    account: StarknetAccount,
-    position_receiver: Receiver<(u64, Position)>,
-    latest_oracle_prices: LatestOraclePrices,
-    storage: Box<dyn Storage>,
-) -> JoinHandle<Result<()>> {
     let monitoring_service = MonitoringService::new(
         config,
         rpc_client,
         account,
         position_receiver,
         latest_oracle_prices,
-        storage,
+        Box::new(storage),
     );
 
-    tokio::spawn(async move {
-        monitoring_service
-            .start()
-            .await
-            .context("😱 Monitoring service error")
-    })
+    ServiceGroup::default()
+        .with(indexer_service)
+        .with(oracle_service)
+        .with(monitoring_service)
+        .start_and_drive_to_end()
+        .await?;
+
+    Ok(())
 }
