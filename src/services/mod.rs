@@ -44,14 +44,12 @@ pub async fn start_all_services(
     );
     let (last_block_indexed, _) = storage.load().await?;
 
-    // TODO: Add force start from staring block in cli
     let starting_block = cmp::max(run_cmd.starting_block, last_block_indexed);
     println!("  🥡 Starting from block {}\n\n", starting_block);
 
     tracing::info!("🧩 Starting the indexer service...");
     let indexer_handle = start_indexer_service(
         config.clone(),
-        rpc_client.clone(),
         positions_sender,
         starting_block,
         run_cmd.apibara_api_key.unwrap(),
@@ -71,8 +69,8 @@ pub async fn start_all_services(
 
     tracing::info!("🧩 Starting the monitoring service...\n");
     let monitoring_handle = start_monitoring_service(
-        config.clone(),
-        rpc_client.clone(),
+        config,
+        rpc_client,
         account,
         position_receiver,
         latest_oracle_prices,
@@ -93,18 +91,12 @@ pub async fn start_all_services(
 /// Starts the indexer service.
 fn start_indexer_service(
     config: Config,
-    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     positions_sender: Sender<(u64, Position)>,
     starting_block: u64,
     apibara_api_key: String,
 ) -> JoinHandle<Result<()>> {
-    let indexer_service = IndexerService::new(
-        config,
-        rpc_client,
-        apibara_api_key,
-        positions_sender,
-        starting_block,
-    );
+    let indexer_service =
+        IndexerService::new(config, apibara_api_key, positions_sender, starting_block);
 
     tokio::spawn(async move {
         indexer_service

@@ -2,20 +2,21 @@ use anyhow::{anyhow, Ok, Result};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use colored::Colorize;
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::{BlockId, BlockTag, FunctionCall};
 use starknet::core::types::{Call, Felt};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount};
 
-use crate::config::{Config, LIQUIDATION_CONFIG_SELECTOR};
+use crate::config::{
+    Config, LIQUIDATION_CONFIG_SELECTOR, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
+};
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::utils::constants::{I129_ZERO, U256_ZERO, VESU_RESPONSE_DECIMALS};
@@ -29,28 +30,32 @@ const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.035;
 
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
-pub struct PositionsMap(pub Arc<RwLock<HashMap<u64, Position>>>);
+pub struct PositionsMap(pub Arc<DashMap<u64, Position>>);
 
 impl PositionsMap {
     pub fn new() -> Self {
-        Self(Arc::new(RwLock::new(HashMap::new())))
+        Self(Arc::new(DashMap::new()))
     }
 
     pub fn from_storage(storage: &dyn Storage) -> Self {
         let positions = storage.get_positions();
-        Self(Arc::new(RwLock::new(positions)))
+        let dash_map = DashMap::new();
+        for (key, value) in positions {
+            dash_map.insert(key, value);
+        }
+        Self(Arc::new(dash_map))
     }
 
-    pub async fn insert(&self, position: Position) -> Option<Position> {
-        self.0.write().await.insert(position.key(), position)
+    pub fn insert(&self, position: Position) -> Option<Position> {
+        self.0.insert(position.key(), position)
     }
 
-    pub async fn len(&self) -> usize {
-        self.0.read().await.len()
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
-    pub async fn is_empty(&self) -> bool {
-        self.0.read().await.is_empty()
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -95,16 +100,17 @@ impl Position {
         let collateral_name = self.collateral.name.to_lowercase();
         let debt_name = self.debt.name.to_lowercase();
 
-        let prices = oracle_prices.0.lock().await;
-        let collateral_price = prices
+        let collateral_price = oracle_prices
+            .0
             .get(&collateral_name)
             .ok_or_else(|| anyhow!("Price not found for collateral: {}", collateral_name))?
             .clone();
-        let debt_price = prices
+
+        let debt_price = oracle_prices
+            .0
             .get(&debt_name)
             .ok_or_else(|| anyhow!("Price not found for debt: {}", debt_name))?
             .clone();
-        drop(prices);
 
         let ltv = (&self.debt.amount * debt_price) / (&self.collateral.amount * collateral_price);
         Ok(ltv)
@@ -175,19 +181,54 @@ impl Position {
         BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
     }
 
-    /// Returns the position as a calldata for the LTV config RPC call.
-    pub fn as_ltv_calldata(&self) -> Vec<Felt> {
-        vec![self.pool_id, self.collateral.address, self.debt.address]
+    pub async fn update(
+        &mut self,
+        rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
+        singleton_address: &Felt,
+    ) -> anyhow::Result<()> {
+        self.update_amounts(rpc_client, singleton_address).await?;
+        self.update_lltv(rpc_client, singleton_address).await?;
+        Ok(())
     }
 
-    /// Returns the position as a calldata for the Update Position RPC call.
-    pub fn as_update_calldata(&self) -> Vec<Felt> {
-        vec![
-            self.pool_id,
-            self.collateral.address,
-            self.debt.address,
-            self.user_address,
-        ]
+    async fn update_amounts(
+        &mut self,
+        rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
+        singleton_address: &Felt,
+    ) -> anyhow::Result<()> {
+        let get_position_request = &FunctionCall {
+            contract_address: *singleton_address,
+            entry_point_selector: *VESU_POSITION_UNSAFE_SELECTOR,
+            calldata: self.as_update_calldata(),
+        };
+        let result = rpc_client
+            .call(get_position_request, BlockId::Tag(BlockTag::Pending))
+            .await?;
+
+        let new_collateral = BigDecimal::new(result[4].to_bigint(), self.collateral.decimals);
+        let new_debt = BigDecimal::new(result[6].to_bigint(), self.debt.decimals);
+        self.collateral.amount = new_collateral;
+        self.debt.amount = new_debt;
+        Ok(())
+    }
+
+    async fn update_lltv(
+        &mut self,
+        rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
+        singleton_address: &Felt,
+    ) -> anyhow::Result<()> {
+        let ltv_config_request = &FunctionCall {
+            contract_address: *singleton_address,
+            entry_point_selector: *VESU_LTV_CONFIG_SELECTOR,
+            calldata: self.as_ltv_calldata(),
+        };
+
+        let ltv_config = rpc_client
+            .call(ltv_config_request, BlockId::Tag(BlockTag::Pending))
+            .await?;
+
+        self.lltv = BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS);
+        Ok(())
     }
 
     /// Returns a unique identifier for the position by hashing the update calldata.
@@ -244,6 +285,21 @@ impl Position {
         let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
 
         Ok(liquidate_call)
+    }
+
+    /// Returns the position as a calldata for the LTV config RPC call.
+    fn as_ltv_calldata(&self) -> Vec<Felt> {
+        vec![self.pool_id, self.collateral.address, self.debt.address]
+    }
+
+    /// Returns the position as a calldata for the Update Position RPC call.
+    fn as_update_calldata(&self) -> Vec<Felt> {
+        vec![
+            self.pool_id,
+            self.collateral.address,
+            self.debt.address,
+            self.user_address,
+        ]
     }
 }
 

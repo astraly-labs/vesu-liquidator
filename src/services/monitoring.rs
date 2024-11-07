@@ -65,12 +65,18 @@ impl MonitoringService {
                 // Insert the new positions indexed by the IndexerService
                 maybe_position = self.positions_receiver.recv() => {
                     match maybe_position {
-                        Some((block_number, new_position)) => {
-                            self.positions.0.write().await.insert(new_position.key(), new_position);
-                            self.storage.save(self.positions.0.read().await.clone(), block_number).await?;
+                        Some((block_number, mut new_position)) => {
+                            new_position
+                                .update(&self.rpc_client, &self.config.singleton_address)
+                                .await?;
+                            if new_position.is_closed() {
+                                continue;
+                            }
+                            self.positions.0.insert(new_position.key(), new_position);
+                            self.storage.save(&self.positions.0, block_number).await?;
                         }
                         None => {
-                            return Err(anyhow!("⛔ Monitoring stopped unexpectedly."));
+                            return Err(anyhow!("Monitoring stopped unexpectedly"));
                         }
                     }
                 }
@@ -80,20 +86,29 @@ impl MonitoringService {
 
     /// Update all monitored positions and check if it's worth to liquidate any.
     async fn monitor_positions_liquidability(&self) -> Result<()> {
-        let monitored_positions = self.positions.0.read().await;
-        if monitored_positions.is_empty() {
+        if self.positions.0.is_empty() {
             return Ok(());
         }
+
         tracing::info!("[🔭 Monitoring] Checking if any position is liquidable...");
-        for (_, position) in monitored_positions.iter() {
-            if position.is_liquidable(&self.latest_oracle_prices).await {
-                tracing::info!(
-                    "[🔭 Monitoring] Liquidatable position found #{}!",
-                    position.key()
-                );
-                self.liquidate_position(position).await?;
+        let position_keys: Vec<u64> = self.positions.0.iter().map(|entry| *entry.key()).collect();
+
+        for key in position_keys {
+            if let Some(mut entry) = self.positions.0.get_mut(&key) {
+                let position = entry.value_mut();
+                if position.is_liquidable(&self.latest_oracle_prices).await {
+                    tracing::info!(
+                        "[🔭 Monitoring] Liquidatable position found #{}!",
+                        position.key()
+                    );
+                    self.liquidate_position(position).await?;
+                    position
+                        .update(&self.rpc_client, &self.config.singleton_address)
+                        .await?;
+                }
             }
         }
+
         tracing::info!("[🔭 Monitoring] 🤨 They're good.. for now...");
         Ok(())
     }
@@ -127,7 +142,7 @@ impl MonitoringService {
 
     /// Waits for a TX to be accepted on-chain.
     pub async fn wait_for_tx_to_be_accepted(&self, &tx_hash: &Felt) -> Result<()> {
-        wait_for_tx(tx_hash, self.rpc_client.clone()).await?;
+        wait_for_tx(tx_hash, &self.rpc_client).await?;
         Ok(())
     }
 }

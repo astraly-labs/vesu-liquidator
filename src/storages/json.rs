@@ -1,6 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::Result;
+use dashmap::DashMap;
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -62,14 +63,21 @@ impl Storage for JsonStorage {
 
     async fn save(
         &mut self,
-        positions: HashMap<u64, position::Position>,
+        positions: &DashMap<u64, position::Position>,
         last_block_indexed: u64,
     ) -> Result<()> {
         let file_path = self.file_path.clone();
+        // Convert DashMap to HashMap for serialization
+        let positions_map: HashMap<u64, position::Position> = positions
+            .iter()
+            .map(|entry| (*entry.key(), entry.value().clone()))
+            .collect();
+
         let map = StoredData {
             last_block_indexed,
-            positions,
+            positions: positions_map,
         };
+
         let json = serde_json::to_string_pretty(&map)?;
         let mut file = File::create(file_path)?;
         file.write_all(json.as_bytes())?;

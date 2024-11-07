@@ -4,13 +4,7 @@ use cainome::cairo_serde::{ContractAddress, U256};
 use serde_json::Value;
 use starknet::core::types::Felt;
 
-use crate::bindings::liquidate::{PoolKey, RouteNode, I129};
-
-const SCALE_128: u128 = 1_000_000_000_000_000_000;
-pub const UNIQUE_ROUTE_WEIGHT: I129 = I129 {
-    mag: SCALE_128,
-    sign: false,
-};
+use crate::bindings::liquidate::{PoolKey, RouteNode};
 
 const EKUBO_QUOTE_ENDPOINT: &str = "https://mainnet-api.ekubo.org/quote";
 const QUOTE_QUERY_PARAMS: &str = "maxHops=0&maxSplits=0";

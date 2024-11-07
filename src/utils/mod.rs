@@ -30,7 +30,7 @@ pub fn setup_tracing() {
 
 pub async fn wait_for_tx(
     tx_hash: Felt,
-    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
+    rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
 ) -> anyhow::Result<()> {
     let mut retries = 0;
     let duration_to_wait_between_polling = Duration::from_secs(INTERVAL_CHECK_TX_FINALITY);
