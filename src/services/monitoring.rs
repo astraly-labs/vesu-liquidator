@@ -30,7 +30,7 @@ pub struct MonitoringService {
     positions_receiver: Arc<Mutex<Receiver<(u64, Position)>>>,
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
-    storage: Arc<Mutex<Box<dyn Storage + Send + Sync>>>,
+    storage: Arc<Mutex<Box<dyn Storage>>>,
 }
 
 #[async_trait::async_trait]

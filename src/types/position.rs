@@ -117,6 +117,10 @@ impl Position {
             (collateral_price > BigDecimal::from(0)) && (debt_price > BigDecimal::from(0)),
             "Oracle prices are zero. Can't compute LTV."
         );
+        anyhow::ensure!(
+            (self.collateral.amount > BigDecimal::from(0)),
+            "Colateral amount is zero. Can't compute LTV."
+        );
 
         let ltv = (&self.debt.amount * debt_price) / (&self.collateral.amount * collateral_price);
         Ok(ltv)
