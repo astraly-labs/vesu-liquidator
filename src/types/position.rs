@@ -30,6 +30,7 @@ const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.035;
 
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
+#[derive(Clone)]
 pub struct PositionsMap(pub Arc<DashMap<u64, Position>>);
 
 impl PositionsMap {
@@ -112,6 +113,11 @@ impl Position {
             .ok_or_else(|| anyhow!("Price not found for debt: {}", debt_name))?
             .clone();
 
+        anyhow::ensure!(
+            (collateral_price > BigDecimal::from(0)) && (debt_price > BigDecimal::from(0)),
+            "Oracle prices are zero. Can't compute LTV."
+        );
+
         let ltv = (&self.debt.amount * debt_price) / (&self.collateral.amount * collateral_price);
         Ok(ltv)
     }
@@ -122,11 +128,11 @@ impl Position {
     }
 
     /// Returns if the position is liquidable or not.
-    pub async fn is_liquidable(&self, oracle_prices: &LatestOraclePrices) -> bool {
-        let ltv_ratio = self
-            .ltv(oracle_prices)
-            .await
-            .expect("failed to retrieve ltv ratio");
+    pub async fn is_liquidable(&self, oracle_prices: &LatestOraclePrices) -> anyhow::Result<bool> {
+        let ltv_ratio = match self.ltv(oracle_prices).await {
+            Result::Ok(ltv) => ltv,
+            Result::Err(_) => return Ok(false),
+        };
 
         let is_liquidable = ltv_ratio >= self.lltv.clone();
         let is_almost_liquidable = ltv_ratio
@@ -134,7 +140,7 @@ impl Position {
         if is_liquidable || is_almost_liquidable {
             self.logs_liquidation_state(is_liquidable, is_almost_liquidable, ltv_ratio);
         }
-        is_liquidable
+        Ok(is_liquidable)
     }
 
     /// Logs the status of the position and if it's liquidable or not.

@@ -9,9 +9,11 @@ use dashmap::DashSet;
 use futures_util::TryStreamExt;
 use starknet::core::types::Felt;
 use tokio::sync::mpsc::Sender;
+use tokio::task::JoinSet;
 
 use crate::cli::NetworkName;
 use crate::config::{Config, MODIFY_POSITION_EVENT};
+use crate::utils::services::Service;
 use crate::{
     types::position::Position,
     utils::conversions::{apibara_field_as_felt, felt_as_apibara_field},
@@ -19,6 +21,7 @@ use crate::{
 
 const INDEXING_STREAM_CHUNK_SIZE: usize = 1;
 
+#[derive(Clone)]
 pub struct IndexerService {
     config: Config,
     uri: Uri,
@@ -26,6 +29,19 @@ pub struct IndexerService {
     stream_config: Configuration<Filter>,
     positions_sender: Sender<(u64, Position)>,
     seen_positions: DashSet<u64>,
+}
+
+#[async_trait::async_trait]
+impl Service for IndexerService {
+    async fn start(&mut self, join_set: &mut JoinSet<anyhow::Result<()>>) -> anyhow::Result<()> {
+        let service = self.clone();
+        join_set.spawn(async move {
+            tracing::info!("🧩 Indexer service started");
+            service.run_forever().await?;
+            Ok(())
+        });
+        Ok(())
+    }
 }
 
 impl IndexerService {
@@ -65,7 +81,7 @@ impl IndexerService {
     }
 
     /// Retrieve all the ModifyPosition events emitted from the Vesu Singleton Contract.
-    pub async fn start(mut self) -> Result<()> {
+    pub async fn run_forever(mut self) -> Result<()> {
         let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
 
         let mut reached_pending_block: bool = false;

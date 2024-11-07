@@ -8,17 +8,33 @@ use futures_util::future::join_all;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use strum::Display;
+use tokio::task::JoinSet;
 use url::Url;
 
 use crate::cli::NetworkName;
+use crate::utils::services::Service;
 use crate::{config::Config, utils::conversions::hex_str_to_big_decimal};
 
 const USD_ASSET: &str = "usd";
 const PRICES_UPDATE_INTERVAL: u64 = 30; // update every 30 seconds
 
+#[derive(Clone)]
 pub struct OracleService {
     oracle: PragmaOracle,
     latest_prices: LatestOraclePrices,
+}
+
+#[async_trait::async_trait]
+impl Service for OracleService {
+    async fn start(&mut self, join_set: &mut JoinSet<anyhow::Result<()>>) -> anyhow::Result<()> {
+        let service = self.clone();
+        join_set.spawn(async move {
+            tracing::info!("🧩 Indexer service started");
+            service.run_forever().await?;
+            Ok(())
+        });
+        Ok(())
+    }
 }
 
 impl OracleService {
@@ -41,7 +57,7 @@ impl OracleService {
 
     /// Starts the oracle service that will fetch the latest oracle prices every
     /// PRICES_UPDATE_INTERVAL seconds.
-    pub async fn start(self) -> Result<()> {
+    pub async fn run_forever(self) -> Result<()> {
         let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
             tracing::info!("[🔮 Oracle] Fetching latest prices...");

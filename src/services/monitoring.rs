@@ -1,12 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Result};
+use futures_util::lock::Mutex;
 use starknet::{
     core::types::{Call, Felt},
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
 };
-use tokio::sync::mpsc::Receiver;
-use tokio::time::interval;
+use tokio::time::{interval, sleep};
+use tokio::{sync::mpsc::Receiver, task::JoinSet};
 
 use crate::{
     config::Config,
@@ -16,19 +17,36 @@ use crate::{
         account::StarknetAccount,
         position::{Position, PositionsMap},
     },
-    utils::wait_for_tx,
+    utils::{services::Service, wait_for_tx},
 };
 
 const CHECK_POSITIONS_INTERVAL: u64 = 10;
 
+#[derive(Clone)]
 pub struct MonitoringService {
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
-    account: StarknetAccount,
-    positions_receiver: Receiver<(u64, Position)>,
+    account: Arc<StarknetAccount>,
+    positions_receiver: Arc<Mutex<Receiver<(u64, Position)>>>,
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
-    storage: Box<dyn Storage>,
+    storage: Arc<Mutex<Box<dyn Storage + Send + Sync>>>,
+}
+
+#[async_trait::async_trait]
+impl Service for MonitoringService {
+    async fn start(&mut self, join_set: &mut JoinSet<anyhow::Result<()>>) -> anyhow::Result<()> {
+        let service = self.clone();
+        // We wait a few seconds before starting the monitoring service to be sure that we have prices
+        // + indexed a few positions.
+        sleep(Duration::from_secs(5)).await;
+        join_set.spawn(async move {
+            tracing::info!("🧩 Indexer service started");
+            service.run_forever().await?;
+            Ok(())
+        });
+        Ok(())
+    }
 }
 
 impl MonitoringService {
@@ -43,27 +61,29 @@ impl MonitoringService {
         MonitoringService {
             config,
             rpc_client,
-            account,
-            positions_receiver,
+            account: Arc::new(account),
+            positions_receiver: Arc::new(Mutex::new(positions_receiver)),
             positions: PositionsMap::from_storage(storage.as_ref()),
             latest_oracle_prices,
-            storage,
+            storage: Arc::new(Mutex::new(storage)),
         }
     }
 
     /// Starts the monitoring service.
-    pub async fn start(mut self) -> Result<()> {
+    pub async fn run_forever(&self) -> Result<()> {
         let mut update_interval = interval(Duration::from_secs(CHECK_POSITIONS_INTERVAL));
 
         loop {
+            let mut receiver = self.positions_receiver.lock().await;
+
             tokio::select! {
-                // Monitor the positions every [update_interval] seconds
                 _ = update_interval.tick() => {
+                    drop(receiver);
                     self.monitor_positions_liquidability().await?;
                 }
 
-                // Insert the new positions indexed by the IndexerService
-                maybe_position = self.positions_receiver.recv() => {
+                maybe_position = receiver.recv() => {
+                    drop(receiver);
                     match maybe_position {
                         Some((block_number, mut new_position)) => {
                             new_position
@@ -73,7 +93,7 @@ impl MonitoringService {
                                 continue;
                             }
                             self.positions.0.insert(new_position.key(), new_position);
-                            self.storage.save(&self.positions.0, block_number).await?;
+                            self.storage.lock().await.save(&self.positions.0, block_number).await?;
                         }
                         None => {
                             return Err(anyhow!("Monitoring stopped unexpectedly"));
@@ -96,7 +116,7 @@ impl MonitoringService {
         for key in position_keys {
             if let Some(mut entry) = self.positions.0.get_mut(&key) {
                 let position = entry.value_mut();
-                if position.is_liquidable(&self.latest_oracle_prices).await {
+                if position.is_liquidable(&self.latest_oracle_prices).await? {
                     tracing::info!(
                         "[🔭 Monitoring] Liquidatable position found #{}!",
                         position.key()

@@ -1,3 +1,8 @@
+pub mod constants;
+pub mod conversions;
+pub mod ekubo;
+pub mod services;
+
 use std::{sync::Arc, time::Duration};
 
 use bigdecimal::{num_bigint::BigInt, BigDecimal};
@@ -6,10 +11,6 @@ use starknet::{
     core::types::{Felt, TransactionFinalityStatus},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
-
-pub mod constants;
-pub mod conversions;
-pub mod ekubo;
 
 /// Apply a small overhead of 2% to the provided number.
 pub fn apply_overhead(num: BigDecimal) -> BigDecimal {
