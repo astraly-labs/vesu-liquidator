@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::{bail, Result};
 use bigdecimal::BigDecimal;
 use dashmap::DashMap;
 use futures_util::future::join_all;
@@ -29,7 +29,7 @@ impl Service for OracleService {
     async fn start(&mut self, join_set: &mut JoinSet<anyhow::Result<()>>) -> anyhow::Result<()> {
         let service = self.clone();
         join_set.spawn(async move {
-            tracing::info!("🧩 Indexer service started");
+            tracing::info!("🔮 Oracle service started");
             service.run_forever().await?;
             Ok(())
         });
@@ -152,10 +152,7 @@ impl PragmaOracle {
         let response_status = response.status();
         let response_text = response.text().await?;
         if response_status != StatusCode::OK {
-            tracing::error!("⛔ Oracle Request failed with: {:?}", response_text);
-            return Err(anyhow!(
-                "Oracle request failed with status {response_status}"
-            ));
+            bail!("Oracle request failed with status {response_status}");
         }
         let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
         let asset_price = hex_str_to_big_decimal(&oracle_response.price, oracle_response.decimals);

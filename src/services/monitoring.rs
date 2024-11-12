@@ -6,8 +6,11 @@ use starknet::{
     core::types::{Call, Felt},
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
 };
-use tokio::time::{interval, sleep};
-use tokio::{sync::mpsc::Receiver, task::JoinSet};
+use tokio::task::JoinSet;
+use tokio::{
+    sync::mpsc::UnboundedReceiver,
+    time::{interval, sleep},
+};
 
 use crate::{
     config::Config,
@@ -27,7 +30,7 @@ pub struct MonitoringService {
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: Arc<StarknetAccount>,
-    positions_receiver: Arc<Mutex<Receiver<(u64, Position)>>>,
+    positions_receiver: Arc<Mutex<UnboundedReceiver<(u64, Position)>>>,
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
     storage: Arc<Mutex<Box<dyn Storage>>>,
@@ -41,7 +44,7 @@ impl Service for MonitoringService {
         // + indexed a few positions.
         sleep(Duration::from_secs(5)).await;
         join_set.spawn(async move {
-            tracing::info!("🧩 Indexer service started");
+            tracing::info!("🔭 Monitoring service started");
             service.run_forever().await?;
             Ok(())
         });
@@ -54,7 +57,7 @@ impl MonitoringService {
         config: Config,
         rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         account: StarknetAccount,
-        positions_receiver: Receiver<(u64, Position)>,
+        positions_receiver: UnboundedReceiver<(u64, Position)>,
         latest_oracle_prices: LatestOraclePrices,
         storage: Box<dyn Storage>,
     ) -> MonitoringService {
@@ -121,7 +124,14 @@ impl MonitoringService {
                         "[🔭 Monitoring] Liquidatable position found #{}!",
                         position.key()
                     );
-                    self.liquidate_position(position).await?;
+                    tracing::info!("[🔭 Monitoring] 🔫 Liquidating position...");
+                    if let Err(e) = self.liquidate_position(position).await {
+                        tracing::error!(
+                            "[🔭 Monitoring] 😨 Could not liquidate position #{}: {}",
+                            position.key(),
+                            e
+                        );
+                    }
                     position
                         .update(&self.rpc_client, &self.config.singleton_address)
                         .await?;
@@ -137,12 +147,11 @@ impl MonitoringService {
     /// liquidate it.
     async fn liquidate_position(&self, position: &Position) -> Result<()> {
         let started_at = std::time::Instant::now();
-        tracing::info!("[🔭 Monitoring] 🔫 Liquidating position...");
         let tx = self.get_liquidation_tx(position).await?;
         let tx_hash = self.account.execute_txs(&[tx]).await?;
         self.wait_for_tx_to_be_accepted(&tx_hash).await?;
         tracing::info!(
-            "[🔭 Monitoring] ✅ Liquidated position #{}! (TX #{}) - ⌛ {:?}",
+            "[🔭 Monitoring] ✅ Liquidated position #{}! (tx {}) - ⌛ {:?}",
             position.key(),
             tx_hash.to_hex_string(),
             started_at.elapsed()
