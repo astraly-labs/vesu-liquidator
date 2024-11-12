@@ -8,7 +8,7 @@ use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
 use dashmap::DashSet;
 use futures_util::TryStreamExt;
 use starknet::core::types::Felt;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinSet;
 
 use crate::cli::NetworkName;
@@ -27,7 +27,7 @@ pub struct IndexerService {
     uri: Uri,
     apibara_api_key: String,
     stream_config: Configuration<Filter>,
-    positions_sender: Sender<(u64, Position)>,
+    positions_sender: UnboundedSender<(u64, Position)>,
     seen_positions: DashSet<u64>,
 }
 
@@ -36,7 +36,7 @@ impl Service for IndexerService {
     async fn start(&mut self, join_set: &mut JoinSet<anyhow::Result<()>>) -> anyhow::Result<()> {
         let service = self.clone();
         join_set.spawn(async move {
-            tracing::info!("🧩 Indexer service started");
+            tracing::info!("🔍 Indexer service started");
             service.run_forever().await?;
             Ok(())
         });
@@ -48,7 +48,7 @@ impl IndexerService {
     pub fn new(
         config: Config,
         apibara_api_key: String,
-        positions_sender: Sender<(u64, Position)>,
+        positions_sender: UnboundedSender<(u64, Position)>,
         from_block: u64,
     ) -> IndexerService {
         let uri = match config.network {
@@ -167,7 +167,7 @@ impl IndexerService {
                     block_number
                 );
             }
-            match self.positions_sender.try_send((block_number, new_position)) {
+            match self.positions_sender.send((block_number, new_position)) {
                 Ok(_) => {}
                 Err(e) => panic!("[🔍 Indexer] 😱 Could not send position: {}", e),
             }

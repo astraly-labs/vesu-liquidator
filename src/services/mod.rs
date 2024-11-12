@@ -6,7 +6,7 @@ use std::{cmp, sync::Arc};
 
 use anyhow::Result;
 use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::unbounded_channel;
 
 use oracle::{LatestOraclePrices, OracleService};
 
@@ -29,7 +29,7 @@ pub async fn start_all_services(
     account: StarknetAccount,
     run_cmd: RunCmd,
 ) -> Result<()> {
-    let (positions_sender, position_receiver) = mpsc::channel::<(u64, Position)>(1024);
+    let (positions_sender, position_receiver) = unbounded_channel::<(u64, Position)>();
 
     // TODO: Add new methods of storage (s3, postgres, sqlite) and be able to define them in CLI
     let mut storage = JsonStorage::new(
