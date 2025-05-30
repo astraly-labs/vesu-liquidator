@@ -2,16 +2,15 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Result};
 use futures_util::lock::Mutex;
-use starknet::{
-    core::types::{Call, Felt},
-    providers::{jsonrpc::HttpTransport, JsonRpcClient},
-};
+use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
 use tokio::task::JoinSet;
 use tokio::{
     sync::mpsc::UnboundedReceiver,
     time::{interval, sleep},
 };
 
+use crate::bindings::liquidate::Liquidate;
+use crate::types::StarknetSingleOwnerAccount;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
@@ -23,10 +22,9 @@ use crate::{
     utils::{services::Service, wait_for_tx},
 };
 
-const CHECK_POSITIONS_INTERVAL: u64 = 10;
-
 #[derive(Clone)]
 pub struct MonitoringService {
+    liquidate_contract: Arc<Liquidate<StarknetSingleOwnerAccount>>,
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: Arc<StarknetAccount>,
@@ -34,6 +32,7 @@ pub struct MonitoringService {
     positions: PositionsMap,
     latest_oracle_prices: LatestOraclePrices,
     storage: Arc<Mutex<Box<dyn Storage>>>,
+    http_client: reqwest::Client,
 }
 
 #[async_trait::async_trait]
@@ -42,7 +41,7 @@ impl Service for MonitoringService {
         let service = self.clone();
         // We wait a few seconds before starting the monitoring service to be sure that we have prices
         // + indexed a few positions.
-        sleep(Duration::from_secs(5)).await;
+        sleep(Duration::from_secs(4)).await;
         join_set.spawn(async move {
             tracing::info!("🔭 Monitoring service started");
             service.run_forever().await?;
@@ -62,6 +61,10 @@ impl MonitoringService {
         storage: Box<dyn Storage>,
     ) -> MonitoringService {
         MonitoringService {
+            liquidate_contract: Arc::new(Liquidate::new(
+                config.liquidate_address,
+                account.0.clone(),
+            )),
             config,
             rpc_client,
             account: Arc::new(account),
@@ -69,12 +72,14 @@ impl MonitoringService {
             positions: PositionsMap::from_storage(storage.as_ref()),
             latest_oracle_prices,
             storage: Arc::new(Mutex::new(storage)),
+            http_client: reqwest::Client::new(),
         }
     }
 
     /// Starts the monitoring service.
     pub async fn run_forever(&self) -> Result<()> {
-        let mut update_interval = interval(Duration::from_secs(CHECK_POSITIONS_INTERVAL));
+        const CHECK_POSITIONS_INTERVAL: u64 = 3500;
+        let mut update_interval = interval(Duration::from_millis(CHECK_POSITIONS_INTERVAL));
 
         loop {
             let mut receiver = self.positions_receiver.lock().await;
@@ -113,33 +118,46 @@ impl MonitoringService {
             return Ok(());
         }
 
-        tracing::info!("[🔭 Monitoring] Checking if any position is liquidable...");
         let position_keys: Vec<u64> = self.positions.0.iter().map(|entry| *entry.key()).collect();
+        let mut positions_to_delete = vec![];
 
         for key in position_keys {
             if let Some(mut entry) = self.positions.0.get_mut(&key) {
                 let position = entry.value_mut();
-                if position.is_liquidable(&self.latest_oracle_prices).await? {
-                    tracing::info!(
-                        "[🔭 Monitoring] Liquidatable position found #{}!",
-                        position.key()
-                    );
-                    tracing::info!("[🔭 Monitoring] 🔫 Liquidating position...");
-                    if let Err(e) = self.liquidate_position(position).await {
+
+                if !position.is_liquidable(&self.latest_oracle_prices).await? {
+                    continue;
+                }
+                tracing::info!(
+                    "[🔭 Monitoring] Liquidatable position found #{}!",
+                    position.key()
+                );
+
+                tracing::info!("[🔭 Monitoring] 🔫 Liquidating position...");
+                if let Err(e) = self.liquidate_position(position).await {
+                    if e.to_string().contains("not-undercollateralized") {
+                        tracing::warn!("[🔭 Monitoring] Position was not under collateralized!");
+                        positions_to_delete.push(key);
+                        continue;
+                    } else {
                         tracing::error!(
-                            "[🔭 Monitoring] 😨 Could not liquidate position #{}: {}",
+                            error = %e,
+                            "[🔭 Monitoring] 😨 Could not liquidate position #{:x}",
                             position.key(),
-                            e
                         );
                     }
-                    position
-                        .update(&self.rpc_client, &self.config.singleton_address)
-                        .await?;
                 }
+
+                position
+                    .update(&self.rpc_client, &self.config.singleton_address)
+                    .await?;
             }
         }
 
-        tracing::info!("[🔭 Monitoring] 🤨 They're good.. for now...");
+        for to_delete in positions_to_delete {
+            self.positions.0.remove(&to_delete);
+        }
+
         Ok(())
     }
 
@@ -147,31 +165,20 @@ impl MonitoringService {
     /// liquidate it.
     async fn liquidate_position(&self, position: &Position) -> Result<()> {
         let started_at = std::time::Instant::now();
-        let tx = self.get_liquidation_tx(position).await?;
-        let tx_hash = self.account.execute_txs(&[tx]).await?;
-        self.wait_for_tx_to_be_accepted(&tx_hash).await?;
+        let liquidation_tx = position
+            .get_vesu_liquidate_tx(
+                &self.liquidate_contract,
+                &self.http_client,
+                &self.account.account_address(),
+            )
+            .await?;
+        let tx_hash = self.account.execute_txs(&[liquidation_tx]).await?;
+        wait_for_tx(&self.rpc_client, tx_hash).await?;
         tracing::info!(
-            "[🔭 Monitoring] ✅ Liquidated position #{}! (tx {}) - ⌛ {:?}",
+            "[🔭 Monitoring] ✅ Liquidated position #{}! (tx {tx_hash:#064x}) - ⌛ {:?}",
             position.key(),
-            tx_hash.to_hex_string(),
             started_at.elapsed()
         );
-        Ok(())
-    }
-
-    /// Simulates the profit generated by liquidating a given position. Returns the profit
-    /// and the transactions needed to liquidate the position.
-    async fn get_liquidation_tx(&self, position: &Position) -> Result<Call> {
-        let liquidation_txs = position
-            .get_vesu_liquidate_tx(&self.account, self.config.liquidate_address)
-            .await?;
-
-        Ok(liquidation_txs)
-    }
-
-    /// Waits for a TX to be accepted on-chain.
-    pub async fn wait_for_tx_to_be_accepted(&self, &tx_hash: &Felt) -> Result<()> {
-        wait_for_tx(tx_hash, &self.rpc_client).await?;
         Ok(())
     }
 }

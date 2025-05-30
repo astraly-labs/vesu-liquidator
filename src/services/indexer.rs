@@ -12,7 +12,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinSet;
 
 use crate::cli::NetworkName;
-use crate::config::{Config, MODIFY_POSITION_EVENT};
+use crate::config::{Config, MIGRATE_POSITION_EVENT, MODIFY_POSITION_EVENT};
 use crate::utils::services::Service;
 use crate::{
     types::position::Position,
@@ -66,6 +66,11 @@ impl IndexerService {
                         event
                             .with_from_address(felt_as_apibara_field(&config.singleton_address))
                             .with_keys(vec![felt_as_apibara_field(&MODIFY_POSITION_EVENT)])
+                    })
+                    .add_event(|event| {
+                        event
+                            .with_from_address(felt_as_apibara_field(&config.singleton_address))
+                            .with_keys(vec![felt_as_apibara_field(&MIGRATE_POSITION_EVENT)])
                     })
                     .build()
             });
@@ -139,7 +144,7 @@ impl IndexerService {
                 },
                 Ok(None) => continue,
                 Err(e) => {
-                    return Err(anyhow::anyhow!("Error while streaming: {}", e));
+                    tracing::error!("[🔍 Indexer] Error while streaming, {}", e);
                 }
             }
         }
@@ -162,8 +167,7 @@ impl IndexerService {
             let position_key = new_position.key();
             if self.seen_positions.insert(position_key) {
                 tracing::info!(
-                    "[🔍 Indexer] Found new position 0x{:x} at block {}",
-                    new_position.key(),
+                    "[🔍 Indexer] Found new/updated position at block {}",
                     block_number
                 );
             }
@@ -171,6 +175,8 @@ impl IndexerService {
                 Ok(_) => {}
                 Err(e) => panic!("[🔍 Indexer] 😱 Could not send position: {}", e),
             }
+        } else {
+            tracing::error!("Could not create position from event :/");
         }
         Ok(())
     }

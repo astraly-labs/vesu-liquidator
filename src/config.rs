@@ -13,6 +13,8 @@ use crate::cli::{NetworkName, RunCmd};
 // Contract selectors
 lazy_static! {
     pub static ref MODIFY_POSITION_EVENT: Felt = get_selector_from_name("ModifyPosition").unwrap();
+    pub static ref MIGRATE_POSITION_EVENT: Felt =
+        get_selector_from_name("MigratePosition").unwrap();
     pub static ref VESU_POSITION_UNSAFE_SELECTOR: Felt =
         get_selector_from_name("position_unsafe").unwrap();
     pub static ref VESU_LTV_CONFIG_SELECTOR: Felt = get_selector_from_name("ltv_config").unwrap();
@@ -43,6 +45,7 @@ pub struct Config {
     pub singleton_address: Felt,
     pub extension_address: Felt,
     pub liquidate_address: Felt,
+    pub pragma_oracle_address: Felt,
     pub assets: Vec<Asset>,
     pub asset_map: HashMap<Felt, Asset>,
     pub liquidation_mode: LiquidationMode,
@@ -75,6 +78,7 @@ impl Config {
         let singleton_address = Felt::from_hex(&network_config.singleton_address)?;
         let extension_address = Felt::from_hex(&network_config.extension_address)?;
         let liquidate_address = Felt::from_hex(&network_config.liquidate_address)?;
+        let pragma_oracle_address = Felt::from_hex(&network_config.pragma_oracle_address)?;
 
         let assets = raw_config.assets;
         let asset_map = assets
@@ -93,6 +97,7 @@ impl Config {
             singleton_address,
             extension_address,
             liquidate_address,
+            pragma_oracle_address,
             assets,
             asset_map,
             liquidation_mode,
@@ -131,6 +136,7 @@ pub struct NetworkConfig {
     pub singleton_address: String,
     pub extension_address: String,
     pub liquidate_address: String,
+    pub pragma_oracle_address: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

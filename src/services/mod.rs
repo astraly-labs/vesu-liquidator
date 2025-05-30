@@ -53,10 +53,9 @@ pub async fn start_all_services(
     );
     let latest_oracle_prices = LatestOraclePrices::from_config(&config);
     let oracle_service = OracleService::new(
-        run_cmd.pragma_api_base_url,
-        run_cmd.pragma_api_key.unwrap(),
+        config.pragma_oracle_address,
+        rpc_client.clone(),
         latest_oracle_prices.clone(),
-        run_cmd.network,
     );
     let monitoring_service = MonitoringService::new(
         config,
