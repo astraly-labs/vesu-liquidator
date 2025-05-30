@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use colored::Colorize;

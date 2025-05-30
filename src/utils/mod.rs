@@ -11,7 +11,7 @@ use std::{
 use anyhow::bail;
 use starknet::{
     core::types::{ExecutionResult, Felt, StarknetError},
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, ProviderError},
+    providers::{JsonRpcClient, Provider, ProviderError, jsonrpc::HttpTransport},
 };
 
 pub fn setup_tracing() {

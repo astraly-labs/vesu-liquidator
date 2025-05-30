@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
+use starknet::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 
 pub mod account;
 pub mod asset;

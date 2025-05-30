@@ -4,7 +4,7 @@ use apibara_core::{
     node::v1alpha2::DataFinality,
     starknet::v1alpha2::{Block, Filter, HeaderFilter},
 };
-use apibara_sdk::{configuration, ClientBuilder, Configuration, Uri};
+use apibara_sdk::{ClientBuilder, Configuration, Uri, configuration};
 use dashmap::DashSet;
 use futures_util::TryStreamExt;
 use starknet::core::types::Felt;

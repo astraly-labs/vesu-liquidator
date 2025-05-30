@@ -5,7 +5,7 @@ pub mod oracle;
 use std::{cmp, sync::Arc};
 
 use anyhow::Result;
-use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
+use starknet::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 use tokio::sync::mpsc::unbounded_channel;
 
 use oracle::{LatestOraclePrices, OracleService};
@@ -14,7 +14,7 @@ use crate::{
     cli::RunCmd,
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
-    storages::{json::JsonStorage, Storage},
+    storages::{Storage, json::JsonStorage},
     types::{account::StarknetAccount, position::Position},
     utils::services::{Service, ServiceGroup},
 };

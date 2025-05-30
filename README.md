@@ -11,8 +11,6 @@
 
 Vesu Liquidator 🤖 is an automated bot that monitors positions on the Vesu Protocol and liquidates them.
 
-Under the hood, the bot calls the [vesu-liquidate](https://github.com/vesuxyz/vesu-liquidate) contract made by the Vesu team.
-
 ## Getting Started
 
 ### Docker through published package
@@ -35,7 +33,6 @@ docker run --rm -it \
   --network <NETWORK_NAME> \
   --rpc-url <RPC_URL> \
   --starting-block <BLOCK_NUMBER> \
-  --pragma-api-base-url <PRAGMA_API_BASE_URL>
   --storage-path ./vesu.json
 ```
 
@@ -68,7 +65,6 @@ docker run --rm -it \
   --network <NETWORK_NAME> \
   --rpc-url <RPC_URL> \
   --starting-block <BLOCK_NUMBER> \
-  --pragma-api-base-url <PRAGMA_API_BASE_URL>
   --storage-path ./vesu.json # persistent indexer storage into a file
 ```
 
@@ -139,14 +135,8 @@ Options:
   -s, --starting-block <BLOCK NUMBER>
           The block you want to start syncing from
 
-      --pragma-api-base-url <PRAGMA API BASE URL>
-          Pragma API Key for indexing
-
       --apibara-api-key <APIBARA API KEY>
           Apibara API Key for indexing
-
-      --pragma-api-key <PRAGMA API KEY>
-          Pragma API Key for indexing
 
   -h, --help
           Print help
@@ -186,7 +176,7 @@ Should run the bot:
 2024-08-23T05:29:20.176390Z  INFO [🔮 Oracle] ✅ Fetched all new prices
 2024-08-23T05:29:20.177651Z  INFO [🔭 Monitoring] 🤨 They're good.. for now...
 
-# rest of the execution...
+#...
 ```
 
 ## Project assistance

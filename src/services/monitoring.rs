@@ -1,8 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use futures_util::lock::Mutex;
-use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
+use starknet::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 use tokio::task::JoinSet;
 use tokio::{
     sync::mpsc::UnboundedReceiver,

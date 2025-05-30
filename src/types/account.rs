@@ -1,15 +1,15 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use bigdecimal::num_bigint::ToBigInt;
 use bigdecimal::BigDecimal;
+use bigdecimal::num_bigint::ToBigInt;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
     core::{
         chain_id,
         types::{BlockId, BlockTag, Call, Felt},
     },
-    providers::{jsonrpc::HttpTransport, JsonRpcClient},
+    providers::{JsonRpcClient, jsonrpc::HttpTransport},
     signers::{LocalWallet, SigningKey},
 };
 

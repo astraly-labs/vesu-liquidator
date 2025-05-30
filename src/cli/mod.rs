@@ -3,7 +3,7 @@ pub mod account;
 use std::{env, path::PathBuf};
 use url::Url;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use strum::Display;
 
 use account::AccountParams;
@@ -61,7 +61,9 @@ impl RunCmd {
             self.apibara_api_key = env::var("APIBARA_API_KEY").ok();
         }
         if self.apibara_api_key.is_none() {
-            return Err(anyhow!("Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."));
+            return Err(anyhow!(
+                "Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."
+            ));
         }
 
         match self.network {
