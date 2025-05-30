@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{Result, anyhow};
 use apibara_core::starknet::v1alpha2::FieldElement;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use colored::Colorize;
@@ -11,22 +11,23 @@ use starknet::providers::{JsonRpcClient, Provider};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use std::time::Duration;
 
-use crate::bindings::liquidate::{Liquidate, LiquidateParams, RouteNode, Swap, TokenAmount};
+use crate::bindings::liquidate::{Liquidate, LiquidateParams};
 
 use crate::config::{
     Config, LIQUIDATION_CONFIG_SELECTOR, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
 };
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
-use crate::utils::constants::{I129_ZERO, U256_ZERO, VESU_RESPONSE_DECIMALS};
+use crate::utils::constants::{U256_ZERO, VESU_RESPONSE_DECIMALS};
 use crate::utils::ekubo::get_ekubo_route;
 use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
 
-use super::account::StarknetAccount;
+use super::StarknetSingleOwnerAccount;
 
 /// Threshold for which we consider a position almost liquidable.
-const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.035;
+const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.01;
 
 /// Thread-safe wrapper around the positions.
 /// PositionsMap is a map between position position_key <=> position.
@@ -83,6 +84,8 @@ impl Position {
         let collateral = Asset::from_address(config, event_keys[2]);
         let debt = Asset::from_address(config, event_keys[3]);
         if collateral.is_none() || debt.is_none() {
+            tracing::info!("{event_keys:?}");
+            tracing::warn!("collat & debt is none :/");
             return None;
         }
 
@@ -133,27 +136,28 @@ impl Position {
 
     /// Returns if the position is liquidable or not.
     pub async fn is_liquidable(&self, oracle_prices: &LatestOraclePrices) -> anyhow::Result<bool> {
+        if self.lltv == BigDecimal::default() {
+            return Ok(false);
+        }
+
         let ltv_ratio = match self.ltv(oracle_prices).await {
             Result::Ok(ltv) => ltv,
             Result::Err(_) => return Ok(false),
         };
 
         let is_liquidable = ltv_ratio >= self.lltv.clone();
-        let is_almost_liquidable = ltv_ratio
-            >= self.lltv.clone() - BigDecimal::from_f64(ALMOST_LIQUIDABLE_THRESHOLD).unwrap();
+        let almost_liquidable_threshold =
+            self.lltv.clone() - BigDecimal::from_f64(ALMOST_LIQUIDABLE_THRESHOLD).unwrap();
+        let is_almost_liquidable = ltv_ratio > almost_liquidable_threshold;
+
         if is_liquidable || is_almost_liquidable {
-            self.logs_liquidation_state(is_liquidable, is_almost_liquidable, ltv_ratio);
+            self.logs_liquidation_state(is_liquidable, ltv_ratio);
         }
+
         Ok(is_liquidable)
     }
 
-    /// Logs the status of the position and if it's liquidable or not.
-    fn logs_liquidation_state(
-        &self,
-        is_liquidable: bool,
-        is_almost_liquidable: bool,
-        ltv_ratio: BigDecimal,
-    ) {
+    fn logs_liquidation_state(&self, is_liquidable: bool, ltv_ratio: BigDecimal) {
         tracing::info!(
             "{} is at ratio {:.2}%/{:.2}% => {}",
             self,
@@ -161,10 +165,8 @@ impl Position {
             self.lltv.clone() * BigDecimal::from(100),
             if is_liquidable {
                 "liquidable!".green()
-            } else if is_almost_liquidable {
-                "almost liquidable 🔫".yellow()
             } else {
-                "NOT liquidable.".red()
+                "almost liquidable 🔫".yellow()
             }
         );
     }
@@ -192,6 +194,31 @@ impl Position {
     }
 
     pub async fn update(
+        &mut self,
+        rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
+        singleton_address: &Felt,
+    ) -> anyhow::Result<()> {
+        const RETRY_DELAY: Duration = Duration::from_secs(2);
+        let mut attempt = 1;
+
+        loop {
+            match self.try_update(rpc_client, singleton_address).await {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    tracing::error!(
+                        "[🔭 Monitoring] Position 0x#{:x} update failed (attempt {}), likely due to RPC error: {}",
+                        self.key(),
+                        attempt,
+                        e
+                    );
+                    tokio::time::sleep(RETRY_DELAY).await;
+                    attempt += 1;
+                }
+            }
+        }
+    }
+
+    async fn try_update(
         &mut self,
         rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
         singleton_address: &Felt,
@@ -252,49 +279,34 @@ impl Position {
     /// contract.
     pub async fn get_vesu_liquidate_tx(
         &self,
-        account: &StarknetAccount,
-        liquidate_contract: Felt,
+        liquidate_contract: &Arc<Liquidate<StarknetSingleOwnerAccount>>,
+        http_client: &reqwest::Client,
+        liquidator_address: &Felt,
     ) -> Result<Call> {
-        let route: Vec<RouteNode> = get_ekubo_route(
-            self.debt.amount.clone(),
-            self.debt.decimals,
-            self.debt.name.clone(),
-            self.collateral.name.clone(),
+        let (liquidate_swap, liquidate_swap_weights) = get_ekubo_route(
+            http_client,
+            self.debt.address,
+            self.collateral.address,
+            &self.debt.amount,
         )
         .await?;
-
-        let liquidate_swap = Swap {
-            route,
-            token_amount: TokenAmount {
-                token: cainome::cairo_serde::ContractAddress(self.debt.address),
-                amount: I129_ZERO,
-            },
-            limit_amount: u128::MAX,
-        };
 
         let liquidate_params = LiquidateParams {
             pool_id: self.pool_id,
             collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
             debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
             user: cainome::cairo_serde::ContractAddress(self.user_address),
-            recipient: cainome::cairo_serde::ContractAddress(account.account_address()),
+            recipient: cainome::cairo_serde::ContractAddress(*liquidator_address),
             min_collateral_to_receive: U256_ZERO,
             debt_to_repay: U256_ZERO,
             liquidate_swap,
-            withdraw_swap: Swap {
-                route: vec![],
-                token_amount: TokenAmount {
-                    token: cainome::cairo_serde::ContractAddress(self.debt.address),
-                    amount: I129_ZERO,
-                },
-                limit_amount: u128::MAX,
-            },
+            liquidate_swap_weights,
+            liquidate_swap_limit_amount: u128::MAX,
+            withdraw_swap: vec![],
+            withdraw_swap_limit_amount: 0,
+            withdraw_swap_weights: vec![],
         };
-
-        let liquidate_contract = Liquidate::new(liquidate_contract, account.0.clone());
-        let liquidate_call = liquidate_contract.liquidate_getcall(&liquidate_params);
-
-        Ok(liquidate_call)
+        Ok(liquidate_contract.liquidate_getcall(&liquidate_params))
     }
 
     /// Returns the position as a calldata for the LTV config RPC call.
@@ -317,8 +329,12 @@ impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Position {}/{} of user {:?}",
-            self.collateral.name, self.debt.name, self.user_address
+            "Position {} with {} {} of collateral and {} {} of debt",
+            self.key(),
+            self.collateral.amount.round(2),
+            self.collateral.name,
+            self.debt.amount.round(2),
+            self.debt.name,
         )
     }
 }

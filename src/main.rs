@@ -13,7 +13,7 @@ use anyhow::Result;
 use clap::Parser;
 use starknet::{
     core::types::Felt,
-    providers::{jsonrpc::HttpTransport, JsonRpcClient},
+    providers::{JsonRpcClient, jsonrpc::HttpTransport},
 };
 
 use cli::{NetworkName, RunCmd};

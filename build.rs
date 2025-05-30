@@ -4,6 +4,8 @@ use std::{
     io::Write,
 };
 
+use cainome::rs::ExecutionVersion;
+
 fn main() {
     //Generate Starknet bindings
     let strk_abi_base = current_dir()
@@ -20,14 +22,16 @@ fn main() {
 
     for (abi_file, bind_out) in strk_deployments {
         let contract_files =
-            strk_abi_base.join(format!("vesu_liquidate_{abi_file}.contract_class.json"));
+            strk_abi_base.join(format!("vesu_periphery_{abi_file}.contract_class.json"));
         let contract_files = contract_files.to_str().unwrap();
-        let abigen = cainome::rs::Abigen::new(abi_file, contract_files).with_derives(vec![
-            "Debug".into(),
-            "Clone".into(),
-            "serde::Deserialize".into(),
-            "serde::Serialize".into(),
-        ]);
+        let abigen = cainome::rs::Abigen::new(abi_file, contract_files)
+            .with_execution_version(ExecutionVersion::V3)
+            .with_derives(vec![
+                "Debug".into(),
+                "Clone".into(),
+                "serde::Deserialize".into(),
+                "serde::Serialize".into(),
+            ]);
 
         abigen
             .generate()

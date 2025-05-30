@@ -5,7 +5,7 @@ pub mod oracle;
 use std::{cmp, sync::Arc};
 
 use anyhow::Result;
-use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
+use starknet::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 use tokio::sync::mpsc::unbounded_channel;
 
 use oracle::{LatestOraclePrices, OracleService};
@@ -14,7 +14,7 @@ use crate::{
     cli::RunCmd,
     config::Config,
     services::{indexer::IndexerService, monitoring::MonitoringService},
-    storages::{json::JsonStorage, Storage},
+    storages::{Storage, json::JsonStorage},
     types::{account::StarknetAccount, position::Position},
     utils::services::{Service, ServiceGroup},
 };
@@ -53,10 +53,9 @@ pub async fn start_all_services(
     );
     let latest_oracle_prices = LatestOraclePrices::from_config(&config);
     let oracle_service = OracleService::new(
-        run_cmd.pragma_api_base_url,
-        run_cmd.pragma_api_key.unwrap(),
+        config.pragma_oracle_address,
+        rpc_client.clone(),
         latest_oracle_prices.clone(),
-        run_cmd.network,
     );
     let monitoring_service = MonitoringService::new(
         config,

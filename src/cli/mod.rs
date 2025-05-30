@@ -3,7 +3,7 @@ pub mod account;
 use std::{env, path::PathBuf};
 use url::Url;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use strum::Display;
 
 use account::AccountParams;
@@ -41,17 +41,9 @@ pub struct RunCmd {
     #[clap(long, short, value_name = "BLOCK NUMBER")]
     pub starting_block: u64,
 
-    /// Pragma API Key for indexing.
-    #[clap(long, value_parser = parse_url, value_name = "PRAGMA API BASE URL")]
-    pub pragma_api_base_url: Url,
-
     /// Apibara API Key for indexing.
     #[clap(long, value_name = "APIBARA API KEY")]
     pub apibara_api_key: Option<String>,
-
-    /// Pragma API Key for indexing.
-    #[clap(long, value_name = "PRAGMA API KEY")]
-    pub pragma_api_key: Option<String>,
 
     /// Configuration file path.
     #[clap(long, value_enum, default_value_t = LiquidationMode::Full, value_name = "LIQUIDATION MODE")]
@@ -59,20 +51,19 @@ pub struct RunCmd {
 }
 
 /// First blocks with Vesu activity. Not necessary to index before.
-const FIRST_MAINNET_BLOCK: u64 = 654244;
+const FIRST_MAINNET_BLOCK: u64 = 1439949;
 const FIRST_SEPOLIA_BLOCK: u64 = 77860;
 
 impl RunCmd {
     pub fn validate(&mut self) -> Result<()> {
         self.account_params.validate()?;
-        if self.pragma_api_key.is_none() {
-            self.pragma_api_key = env::var("PRAGMA_API_KEY").ok();
-        }
         if self.apibara_api_key.is_none() {
             self.apibara_api_key = env::var("APIBARA_API_KEY").ok();
         }
-        if self.pragma_api_key.is_none() || self.apibara_api_key.is_none() {
-            return Err(anyhow!("Pragma API Key or Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."));
+        if self.apibara_api_key.is_none() {
+            return Err(anyhow!(
+                "Apibara API Key is missing. Please provide at least one via command line arguments or environment variable."
+            ));
         }
 
         match self.network {

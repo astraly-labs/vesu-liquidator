@@ -1,6 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::Args;
 use starknet::core::types::Felt;
 
@@ -11,11 +11,11 @@ fn parse_felt(s: &str) -> Result<Felt> {
 #[derive(Clone, Debug, Args)]
 pub struct AccountParams {
     /// Account address of the liquidator account
-    #[clap(long, value_parser = parse_felt, value_name = "LIQUIDATOR ACCOUNT ADDRESS")]
+    #[clap(long, value_parser = parse_felt, value_name = "LIQUIDATOR ACCOUNT ADDRESS", env = "ACCOUNT_ADDRESS")]
     pub account_address: Felt,
 
     /// Private key of the liquidator account
-    #[clap(long, value_parser = parse_felt, value_name = "LIQUIDATOR PRIVATE KEY")]
+    #[clap(long, value_parser = parse_felt, value_name = "LIQUIDATOR PRIVATE KEY", env = "PRIVATE_KEY")]
     pub private_key: Option<Felt>,
 
     /// Keystore path for the liquidator account
@@ -36,9 +36,9 @@ impl AccountParams {
         ) {
             (Some(_), None, None) => Ok(()),
             (None, Some(_), Some(_)) => Ok(()),
-            _ => Err(
-                anyhow!("Missing liquidator account key. Use either (--private-key) or (--keystore-path + --keystore-password).")
-            ),
+            _ => Err(anyhow!(
+                "Missing liquidator account key. Use either (--private-key) or (--keystore-path + --keystore-password)."
+            )),
         }
     }
 }

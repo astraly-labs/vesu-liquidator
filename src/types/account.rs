@@ -2,13 +2,14 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use bigdecimal::BigDecimal;
+use bigdecimal::num_bigint::ToBigInt;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
     core::{
         chain_id,
         types::{BlockId, BlockTag, Call, Felt},
     },
-    providers::{jsonrpc::HttpTransport, JsonRpcClient},
+    providers::{JsonRpcClient, jsonrpc::HttpTransport},
     signers::{LocalWallet, SigningKey},
 };
 
@@ -56,16 +57,21 @@ impl StarknetAccount {
     /// Simulate a set of TXs and return the estimation of the fee necessary
     /// to execute them.
     pub async fn estimate_fees_cost(&self, txs: &[Call]) -> Result<BigDecimal> {
-        let estimation = self.0.execute_v1(txs.to_vec()).estimate_fee().await?;
+        let estimation = self.0.execute_v3(txs.to_vec()).estimate_fee().await?;
         Ok(BigDecimal::new(
-            estimation.overall_fee.to_bigint(),
+            estimation.overall_fee.to_bigint().unwrap(),
             VESU_RESPONSE_DECIMALS,
         ))
     }
 
     /// Executes a set of transactions and returns the transaction hash.
     pub async fn execute_txs(&self, txs: &[Call]) -> Result<Felt> {
-        let res = self.0.execute_v1(txs.to_vec()).send().await?;
+        let res = self
+            .0
+            .execute_v3(txs.to_vec())
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!(format!("{:?}", e)))?;
         Ok(res.transaction_hash)
     }
 }

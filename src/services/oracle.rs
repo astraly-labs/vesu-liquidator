@@ -1,26 +1,58 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use bigdecimal::BigDecimal;
 use dashmap::DashMap;
 use futures_util::future::join_all;
-use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
-use strum::Display;
+use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
+use starknet::core::utils::{cairo_short_string_to_felt, get_selector_from_name};
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::{JsonRpcClient, Provider};
 use tokio::task::JoinSet;
-use url::Url;
 
-use crate::cli::NetworkName;
+use crate::config::Config;
+use crate::utils::conversions::hex_str_to_big_decimal;
 use crate::utils::services::Service;
-use crate::{config::Config, utils::conversions::hex_str_to_big_decimal};
 
-const USD_ASSET: &str = "usd";
-const PRICES_UPDATE_INTERVAL: u64 = 30; // update every 30 seconds
+const LST_ASSETS: [&str; 3] = ["xstrk", "sstrk", "kstrk"];
+
+/// Aggregations possible using the Pragma Oracle contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AggregationMode {
+    Median,
+    Mean,
+    ConversionRate,
+}
+
+impl AggregationMode {
+    pub fn to_felt(&self) -> Felt {
+        match self {
+            AggregationMode::Median => Felt::ZERO,
+            AggregationMode::Mean => Felt::ONE,
+            AggregationMode::ConversionRate => Felt::TWO,
+        }
+    }
+}
+
+/// Map contaning the price in dollars for a list of monitored assets.
+#[derive(Default, Clone)]
+pub struct LatestOraclePrices(pub Arc<DashMap<String, BigDecimal>>);
+
+impl LatestOraclePrices {
+    pub fn from_config(config: &Config) -> Self {
+        let prices = DashMap::new();
+        for asset in config.assets.iter() {
+            prices.insert(asset.ticker.to_lowercase(), BigDecimal::default());
+        }
+        LatestOraclePrices(Arc::new(prices))
+    }
+}
 
 #[derive(Clone)]
 pub struct OracleService {
-    oracle: PragmaOracle,
+    pragma_address: Felt,
+    rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     latest_prices: LatestOraclePrices,
 }
 
@@ -39,18 +71,13 @@ impl Service for OracleService {
 
 impl OracleService {
     pub fn new(
-        api_url: Url,
-        api_key: String,
+        pragma_address: Felt,
+        rpc_client: Arc<JsonRpcClient<HttpTransport>>,
         latest_prices: LatestOraclePrices,
-        network: NetworkName,
     ) -> Self {
-        let network_to_fetch = match network {
-            NetworkName::Sepolia => "sepolia",
-            NetworkName::Mainnet => "mainnet",
-        };
-        let oracle = PragmaOracle::new(api_url, api_key, network_to_fetch.to_string());
         Self {
-            oracle,
+            pragma_address,
+            rpc_client,
             latest_prices,
         }
     }
@@ -58,11 +85,10 @@ impl OracleService {
     /// Starts the oracle service that will fetch the latest oracle prices every
     /// PRICES_UPDATE_INTERVAL seconds.
     pub async fn run_forever(self) -> Result<()> {
+        const PRICES_UPDATE_INTERVAL: u64 = 3;
         let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
-            tracing::info!("[🔮 Oracle] Fetching latest prices...");
             self.update_prices().await?;
-            tracing::info!("[🔮 Oracle] ✅ Fetched all new prices");
             tokio::time::sleep(sleep_duration).await;
         }
     }
@@ -76,12 +102,9 @@ impl OracleService {
             .map(|entry| entry.key().clone())
             .collect();
 
-        let fetch_tasks = assets.into_iter().map(|asset| {
-            let oracle = self.oracle.clone();
-            async move {
-                let price = oracle.get_dollar_price(asset.clone()).await;
-                (asset, price)
-            }
+        let fetch_tasks = assets.into_iter().map(|asset| async move {
+            let price = self.get_price_in_dollars(&asset).await;
+            (asset, price)
         });
 
         let results = join_all(fetch_tasks).await;
@@ -94,108 +117,36 @@ impl OracleService {
 
         Ok(())
     }
-}
 
-/// Map contaning the price in dollars for a list of monitored assets.
-#[derive(Default, Clone)]
-pub struct LatestOraclePrices(pub Arc<DashMap<String, BigDecimal>>);
+    async fn get_price_in_dollars(&self, base_asset: &str) -> Result<BigDecimal> {
+        let pair = format!("{}/USD", base_asset.to_ascii_uppercase());
 
-impl LatestOraclePrices {
-    pub fn from_config(config: &Config) -> Self {
-        let prices = DashMap::new();
-        for asset in config.assets.iter() {
-            prices.insert(asset.ticker.to_lowercase(), BigDecimal::default());
-        }
-        LatestOraclePrices(Arc::new(prices))
-    }
-}
+        let aggregation_mode = if LST_ASSETS.contains(&base_asset) {
+            AggregationMode::ConversionRate
+        } else {
+            AggregationMode::Median
+        };
 
-#[derive(Deserialize, Debug)]
-pub struct OracleApiResponse {
-    pub price: String,
-    pub decimals: i64,
-}
+        let price_request = FunctionCall {
+            contract_address: self.pragma_address,
+            entry_point_selector: get_selector_from_name("get_data")?,
+            calldata: vec![
+                Felt::ZERO,
+                cairo_short_string_to_felt(&pair)?,
+                aggregation_mode.to_felt(),
+            ],
+        };
 
-#[derive(Debug, Clone)]
-pub struct PragmaOracle {
-    http_client: reqwest::Client,
-    api_url: Url,
-    api_key: String,
-    aggregation_method: AggregationMethod,
-    interval: Interval,
-    network: String,
-}
-
-impl PragmaOracle {
-    pub fn new(api_url: Url, api_key: String, network: String) -> Self {
-        Self {
-            http_client: reqwest::Client::new(),
-            api_url,
-            api_key,
-            aggregation_method: AggregationMethod::Median,
-            interval: Interval::OneMinute,
-            network,
-        }
-    }
-}
-
-impl PragmaOracle {
-    // TODO: Fix oracle timeout response with a retry
-    pub async fn get_dollar_price(&self, asset_name: String) -> Result<BigDecimal> {
-        let url = self.fetch_price_url(asset_name, USD_ASSET.to_owned());
-        let response = self
-            .http_client
-            .get(url)
-            .header("x-api-key", &self.api_key)
-            .send()
+        let call_result = self
+            .rpc_client
+            .call(price_request, BlockId::Tag(BlockTag::Pending))
             .await?;
-        let response_status = response.status();
-        let response_text = response.text().await?;
-        if response_status != StatusCode::OK {
-            bail!("Oracle request failed with status {response_status}");
-        }
-        let oracle_response: OracleApiResponse = serde_json::from_str(&response_text)?;
-        let asset_price = hex_str_to_big_decimal(&oracle_response.price, oracle_response.decimals);
+
+        let asset_price = hex_str_to_big_decimal(
+            &call_result[0].to_hex_string(),
+            call_result[1].to_bigint().try_into()?,
+        );
+
         Ok(asset_price)
     }
-
-    fn fetch_price_url(&self, base: String, quote: String) -> String {
-        format!(
-            "{}node/v1/onchain/{}/{}?network={}&components=false&variations=false&interval={}&aggregation={}",
-            self.api_url, base, quote, self.network, self.interval, self.aggregation_method
-        )
-    }
-}
-
-#[derive(Default, Debug, Serialize, Deserialize, Clone, Display)]
-/// Supported Aggregation Methods
-pub enum AggregationMethod {
-    #[serde(rename = "median")]
-    #[strum(serialize = "median")]
-    #[default]
-    Median,
-    #[serde(rename = "mean")]
-    #[strum(serialize = "mean")]
-    Mean,
-    #[strum(serialize = "twap")]
-    #[serde(rename = "twap")]
-    Twap,
-}
-
-/// Supported Aggregation Intervals
-#[derive(Default, Debug, Serialize, Deserialize, Clone, Display)]
-pub enum Interval {
-    #[serde(rename = "1min")]
-    #[strum(serialize = "1min")]
-    OneMinute,
-    #[serde(rename = "15min")]
-    #[strum(serialize = "15min")]
-    FifteenMinutes,
-    #[serde(rename = "1h")]
-    #[strum(serialize = "1h")]
-    OneHour,
-    #[serde(rename = "2h")]
-    #[strum(serialize = "2h")]
-    #[default]
-    TwoHours,
 }

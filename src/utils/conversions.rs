@@ -1,6 +1,6 @@
 use apibara_core::starknet::v1alpha2::FieldElement;
-use bigdecimal::num_bigint::BigInt;
 use bigdecimal::BigDecimal;
+use bigdecimal::num_bigint::BigInt;
 use starknet::core::types::{Felt, U256};
 
 /// Converts an hexadecimal string with decimals to BigDecimal.
@@ -34,7 +34,7 @@ pub fn big_decimal_to_felt(value: BigDecimal) -> Felt {
 mod test {
     use std::str::FromStr;
 
-    use bigdecimal::{num_bigint::BigInt, BigDecimal};
+    use bigdecimal::{BigDecimal, num_bigint::BigInt};
 
     use crate::utils::conversions::hex_str_to_big_decimal;
 
