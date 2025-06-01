@@ -367,9 +367,9 @@ dependencies = [
 
 [[package]]
 name = "bigdecimal"
-version = "0.4.6"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f850665a0385e070b64c38d2354e6c104c8479c59868d1e48a0c13ee2c7a1c1"
+checksum = "1a22f228ab7a1b23027ccc6c350b72868017af7ea8356fbdf19f8d991c690013"
 dependencies = [
  "autocfg",
  "libm",
@@ -4456,7 +4456,7 @@ dependencies = [
  "apibara-core",
  "apibara-sdk",
  "async-trait",
- "bigdecimal 0.4.6",
+ "bigdecimal 0.4.8",
  "cainome",
  "clap",
  "colored",
