@@ -10,9 +10,9 @@ readme = "README.md"
 keywords = ["vesu", "liquidator", "bot", "starknet"]
 
 [dependencies]
-anyhow = "1.0.89"
-async-trait = "0.1.83"
-bigdecimal = { version = "0.4.5", features = ["serde"] }
+anyhow = "1.0"
+async-trait = "0.1"
+bigdecimal = { version = "0.4", features = ["serde"] }
 cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.7.0", features = [
   "abigen-rs",
 ] }
@@ -22,19 +22,19 @@ dashmap = "6.1.0"
 dotenvy = "0.15.7"
 futures-util = "0.3.30"
 lazy_static = "1.5.0"
-reqwest = { version = "0.12.8", features = ["json"] }
-serde = "1.0.210"
-serde_json = "1.0.128"
+reqwest = { version = "0.12", features = ["json"] }
+serde = "1.0"
+serde_json = "1.0"
 serde_yaml = "0.9"
 starknet = { version = "0.15" }
 strum = { version = "0.26", features = ["derive"] }
-tokio = { version = "1.40.0", features = ["full"] }
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = [
+tokio = { version = "1.40", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
   "env-filter",
   "local-time",
 ] }
-url = "2.5.2"
+url = "2.5"
 
 apibara-core = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
@@ -43,8 +43,3 @@ apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
 cainome = { git = "https://github.com/cartridge-gg/cainome", tag = "v0.7.0", features = [
   "abigen-rs",
 ] }
-
-[dev-dependencies]
-rstest = "0.23.0"
-testcontainers = { version = "0.23.1" }
-tracing-test = "0.2.5"
