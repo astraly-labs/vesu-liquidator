@@ -2523,9 +2523,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.18"
+version = "0.12.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e98ff6b0dbbe4d5a37318f433d4fc82babd21631f194d370409ceb2e40b2f0b5"
+checksum = "cbc931937e6ca3a06e3b6c0aa7841849b160a90351d6ab467a8b9b9959767531"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2539,12 +2539,10 @@ dependencies = [
  "hyper-rustls 0.27.6",
  "hyper-tls",
  "hyper-util",
- "ipnet",
  "js-sys",
  "log",
  "mime",
  "native-tls",
- "once_cell",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -3385,7 +3383,7 @@ dependencies = [
  "flate2",
  "getrandom 0.2.16",
  "log",
- "reqwest 0.12.18",
+ "reqwest 0.12.22",
  "serde",
  "serde_json",
  "serde_with 3.12.0",
@@ -4153,7 +4151,7 @@ dependencies = [
  "dotenvy",
  "futures-util",
  "lazy_static",
- "reqwest 0.12.18",
+ "reqwest 0.12.22",
  "serde",
  "serde_json",
  "serde_yaml",
