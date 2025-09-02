@@ -132,7 +132,7 @@ impl StarknetAccountBuilder {
             ExecutionEncoding::New,
         );
 
-        account.set_block_id(BlockId::Tag(BlockTag::Pending));
+        account.set_block_id(BlockId::Tag(BlockTag::PreConfirmed));
 
         Ok(StarknetAccount(Arc::new(account)))
     }
