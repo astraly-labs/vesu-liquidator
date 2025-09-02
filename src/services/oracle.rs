@@ -139,7 +139,7 @@ impl OracleService {
 
         let call_result = self
             .rpc_client
-            .call(price_request, BlockId::Tag(BlockTag::Pending))
+            .call(price_request, BlockId::Tag(BlockTag::PreConfirmed))
             .await?;
 
         let asset_price = hex_str_to_big_decimal(

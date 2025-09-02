@@ -187,7 +187,10 @@ impl Position {
         };
 
         let ltv_config = rpc_client
-            .call(liquidation_config_request, BlockId::Tag(BlockTag::Pending))
+            .call(
+                liquidation_config_request,
+                BlockId::Tag(BlockTag::PreConfirmed),
+            )
             .await
             .expect("failed to retrieve");
         BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
@@ -239,7 +242,7 @@ impl Position {
             calldata: self.as_update_calldata(),
         };
         let result = rpc_client
-            .call(get_position_request, BlockId::Tag(BlockTag::Pending))
+            .call(get_position_request, BlockId::Tag(BlockTag::PreConfirmed))
             .await?;
 
         let new_collateral = BigDecimal::new(result[4].to_bigint(), self.collateral.decimals);
@@ -261,7 +264,7 @@ impl Position {
         };
 
         let ltv_config = rpc_client
-            .call(ltv_config_request, BlockId::Tag(BlockTag::Pending))
+            .call(ltv_config_request, BlockId::Tag(BlockTag::PreConfirmed))
             .await?;
 
         self.lltv = BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS);
