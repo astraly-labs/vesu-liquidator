@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use bigdecimal::BigDecimal;
-use cainome::cairo_serde::{ContractAddress, U256};
 use serde_json::Value;
-use starknet::core::types::Felt;
+use starknet_rust::core::types::{Felt, U256};
 
 use crate::{
     bindings::liquidate::{PoolKey, RouteNode, Swap, TokenAmount},
@@ -52,15 +51,14 @@ pub async fn get_ekubo_route(
             vec![Swap {
                 route,
                 token_amount: TokenAmount {
-                    token: ContractAddress(from_token),
+                    token: from_token,
                     amount: I129_ZERO,
                 },
             }],
-            vec![SCALE], // Single weight of 100%
+            vec![SCALE],
         ));
     }
 
-    // Calculate total amount for weight calculation
     let total_amount: i128 = splits
         .iter()
         .map(|split| {
@@ -76,7 +74,6 @@ pub async fn get_ekubo_route(
     let mut weights = Vec::with_capacity(splits.len());
     let mut running_weight_sum: u128 = 0;
 
-    // Process all splits except the last one
     for split in splits.iter().take(splits.len() - 1) {
         let split_amount = split["amount_specified"]
             .as_str()
@@ -91,13 +88,12 @@ pub async fn get_ekubo_route(
         swaps.push(Swap {
             route,
             token_amount: TokenAmount {
-                token: ContractAddress(from_token),
+                token: from_token,
                 amount: I129_ZERO,
             },
         });
     }
 
-    // Handle the last split - ensure exact SCALE total
     let last_split = splits.last().unwrap();
     let last_weight = SCALE - running_weight_sum;
     weights.push(last_weight);
@@ -106,16 +102,20 @@ pub async fn get_ekubo_route(
     swaps.push(Swap {
         route,
         token_amount: TokenAmount {
-            token: ContractAddress(from_token),
+            token: from_token,
             amount: I129_ZERO,
         },
     });
 
-    // Verify total is exactly SCALE
     let total_weight: u128 = weights.iter().sum();
     assert!(total_weight == SCALE, "Weights do not sum to SCALE");
 
     Ok((swaps, weights))
+}
+
+fn parse_sqrt_ratio(hex_str: &str) -> Result<U256> {
+    let felt = Felt::from_hex(hex_str)?;
+    Ok(U256::from(felt))
 }
 
 fn parse_route(split: &Value) -> Result<Vec<RouteNode>> {
@@ -129,20 +129,20 @@ fn parse_route(split: &Value) -> Result<Vec<RouteNode>> {
                 .as_str()
                 .context("sqrt_ratio_limit is not a string")?;
 
-            let sqrt_ratio = U256::from_bytes_be(&Felt::from_hex(sqrt_ratio_limit)?.to_bytes_be());
+            let sqrt_ratio = parse_sqrt_ratio(sqrt_ratio_limit)?;
 
             Ok(RouteNode {
                 pool_key: PoolKey {
-                    token0: ContractAddress(Felt::from_hex(
+                    token0: Felt::from_hex(
                         pool_key["token0"]
                             .as_str()
                             .context("token0 is not a string")?,
-                    )?),
-                    token1: ContractAddress(Felt::from_hex(
+                    )?,
+                    token1: Felt::from_hex(
                         pool_key["token1"]
                             .as_str()
                             .context("token1 is not a string")?,
-                    )?),
+                    )?,
                     fee: u128::from_str_radix(
                         pool_key["fee"]
                             .as_str()
@@ -155,11 +155,11 @@ fn parse_route(split: &Value) -> Result<Vec<RouteNode>> {
                         .as_u64()
                         .context("tick_spacing is not a u64")?
                         as u128,
-                    extension: ContractAddress(Felt::from_hex(
+                    extension: Felt::from_hex(
                         pool_key["extension"]
                             .as_str()
                             .context("extension is not a string")?,
-                    )?),
+                    )?,
                 },
                 sqrt_ratio_limit: sqrt_ratio,
                 skip_ahead: node["skip_ahead"]

@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
-use starknet::providers::{JsonRpcClient, jsonrpc::HttpTransport};
+use starknet_rust::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 
 pub mod account;
 pub mod asset;
 pub mod position;
 
 pub type StarknetSingleOwnerAccount = Arc<
-    starknet::accounts::SingleOwnerAccount<
+    starknet_rust::accounts::SingleOwnerAccount<
         Arc<JsonRpcClient<HttpTransport>>,
-        starknet::signers::LocalWallet,
+        starknet_rust::signers::LocalWallet,
     >,
 >;

@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::bail;
-use starknet::{
+use starknet_rust::{
     core::types::{ExecutionResult, Felt, StarknetError},
     providers::{JsonRpcClient, Provider, ProviderError, jsonrpc::HttpTransport},
 };

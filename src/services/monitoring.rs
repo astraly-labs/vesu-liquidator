@@ -2,15 +2,14 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::{Result, anyhow};
 use futures_util::lock::Mutex;
-use starknet::providers::{JsonRpcClient, jsonrpc::HttpTransport};
+use starknet_rust::core::types::Felt;
+use starknet_rust::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 use tokio::task::JoinSet;
 use tokio::{
     sync::mpsc::UnboundedReceiver,
     time::{interval, sleep},
 };
 
-use crate::bindings::liquidate::Liquidate;
-use crate::types::StarknetSingleOwnerAccount;
 use crate::{
     config::Config,
     services::oracle::LatestOraclePrices,
@@ -24,7 +23,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct MonitoringService {
-    liquidate_contract: Arc<Liquidate<StarknetSingleOwnerAccount>>,
+    liquidate_address: Felt,
     config: Config,
     rpc_client: Arc<JsonRpcClient<HttpTransport>>,
     account: Arc<StarknetAccount>,
@@ -61,10 +60,7 @@ impl MonitoringService {
         storage: Box<dyn Storage>,
     ) -> MonitoringService {
         MonitoringService {
-            liquidate_contract: Arc::new(Liquidate::new(
-                config.liquidate_address,
-                account.0.clone(),
-            )),
+            liquidate_address: config.liquidate_address,
             config,
             rpc_client,
             account: Arc::new(account),
@@ -167,7 +163,7 @@ impl MonitoringService {
         let started_at = std::time::Instant::now();
         let liquidation_tx = position
             .get_vesu_liquidate_tx(
-                &self.liquidate_contract,
+                &self.liquidate_address,
                 &self.http_client,
                 &self.account.account_address(),
             )

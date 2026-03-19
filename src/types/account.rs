@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::Result;
 use bigdecimal::BigDecimal;
 use bigdecimal::num_bigint::ToBigInt;
-use starknet::{
+use starknet_rust::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
     core::{
         chain_id,

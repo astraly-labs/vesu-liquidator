@@ -1,32 +1,34 @@
 use anyhow::Result;
-use apibara_core::starknet::v1alpha2::Event;
-use apibara_core::{
-    node::v1alpha2::DataFinality,
-    starknet::v1alpha2::{Block, Filter, HeaderFilter},
+use apibara_dna_protocol::dna::stream::DataFinality;
+use apibara_dna_sdk::{
+    StaticBearerToken, StreamClient, StreamDataRequestBuilder,
+    proto::{Cursor, DnaMessage},
+    starknet::{Block, Event, EventFilterBuilder, FieldElement, FilterBuilder},
 };
-use apibara_sdk::{ClientBuilder, Configuration, Uri, configuration};
 use dashmap::DashSet;
-use futures_util::TryStreamExt;
-use starknet::core::types::Felt;
+use prost::Message;
+use starknet_rust::core::types::Felt;
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinSet;
+use tokio_stream::StreamExt;
+use tonic::transport::Uri;
 
 use crate::cli::NetworkName;
 use crate::config::{Config, MIGRATE_POSITION_EVENT, MODIFY_POSITION_EVENT};
+use crate::types::position::Position;
+use crate::utils::conversions::{apibara_field_as_felt, felt_as_apibara_field};
 use crate::utils::services::Service;
-use crate::{
-    types::position::Position,
-    utils::conversions::{apibara_field_as_felt, felt_as_apibara_field},
-};
 
-const INDEXING_STREAM_CHUNK_SIZE: usize = 1;
+const STARKNET_MAINNET_DNA_URL: &str = "https://mainnet.starknet.a5a.ch";
+const STARKNET_SEPOLIA_DNA_URL: &str = "https://sepolia.starknet.a5a.ch";
 
 #[derive(Clone)]
 pub struct IndexerService {
     config: Config,
-    uri: Uri,
+    dna_url: String,
     apibara_api_key: String,
-    stream_config: Configuration<Filter>,
+    starting_block: u64,
     positions_sender: UnboundedSender<(u64, Position)>,
     seen_positions: DashSet<u64>,
 }
@@ -51,119 +53,123 @@ impl IndexerService {
         positions_sender: UnboundedSender<(u64, Position)>,
         from_block: u64,
     ) -> IndexerService {
-        let uri = match config.network {
-            NetworkName::Mainnet => Uri::from_static("https://mainnet.starknet.a5a.ch"),
-            NetworkName::Sepolia => Uri::from_static("https://sepolia.starknet.a5a.ch"),
+        let dna_url = match config.network {
+            NetworkName::Mainnet => STARKNET_MAINNET_DNA_URL,
+            NetworkName::Sepolia => STARKNET_SEPOLIA_DNA_URL,
         };
-
-        let stream_config = Configuration::<Filter>::default()
-            .with_starting_block(from_block)
-            .with_finality(DataFinality::DataStatusPending)
-            .with_filter(|mut filter| {
-                filter
-                    .with_header(HeaderFilter::weak())
-                    .add_event(|event| {
-                        event
-                            .with_from_address(felt_as_apibara_field(&config.singleton_address))
-                            .with_keys(vec![felt_as_apibara_field(&MODIFY_POSITION_EVENT)])
-                    })
-                    .add_event(|event| {
-                        event
-                            .with_from_address(felt_as_apibara_field(&config.singleton_address))
-                            .with_keys(vec![felt_as_apibara_field(&MIGRATE_POSITION_EVENT)])
-                    })
-                    .build()
-            });
 
         IndexerService {
             config,
-            uri,
+            dna_url: dna_url.to_string(),
             apibara_api_key,
-            stream_config,
+            starting_block: from_block,
             positions_sender,
             seen_positions: DashSet::default(),
         }
     }
 
-    /// Retrieve all the ModifyPosition events emitted from the Vesu Singleton Contract.
+    fn build_filter(&self) -> apibara_dna_sdk::starknet::Filter {
+        let singleton = felt_as_apibara_field(&self.config.singleton_address);
+        let modify_key = felt_as_apibara_field(&MODIFY_POSITION_EVENT);
+        let migrate_key = felt_as_apibara_field(&MIGRATE_POSITION_EVENT);
+
+        FilterBuilder::new()
+            .add_event(
+                EventFilterBuilder::single_contract(singleton)
+                    .with_keys(false, vec![Some(modify_key)])
+                    .build(),
+            )
+            .add_event(
+                EventFilterBuilder::single_contract(singleton)
+                    .with_keys(false, vec![Some(migrate_key)])
+                    .build(),
+            )
+            .build()
+    }
+
     pub async fn run_forever(mut self) -> Result<()> {
-        let (config_client, config_stream) = configuration::channel(INDEXING_STREAM_CHUNK_SIZE);
+        let filter = self.build_filter();
 
-        let mut reached_pending_block: bool = false;
+        let stream_request = StreamDataRequestBuilder::new()
+            .with_starting_cursor(Cursor::new_with_block_number(self.starting_block))
+            .with_finality(DataFinality::Pending)
+            .add_filter(filter)
+            .build();
 
-        config_client.send(self.stream_config.clone()).await?;
+        let url: Uri = self.dna_url.parse()?;
 
-        let mut stream = ClientBuilder::default()
-            .with_bearer_token(Some(self.apibara_api_key.clone()))
-            .connect(self.uri.clone())
+        let mut client = StreamClient::builder()
+            .with_bearer_token_provider(Arc::new(StaticBearerToken::new(
+                self.apibara_api_key.clone(),
+            )))
+            .connect(url)
             .await
-            .unwrap()
-            .start_stream::<Filter, Block, _>(config_stream)
+            .map_err(|e| anyhow::anyhow!("Could not connect to Apibara DNA: {e}"))?;
+
+        let mut stream = client
+            .stream_data(stream_request)
             .await
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("Could not start Apibara DNA stream: {e}"))?;
+
+        let mut reached_live: bool = false;
 
         loop {
             match stream.try_next().await {
-                Ok(Some(response)) => match response {
-                    apibara_sdk::DataMessage::Data {
-                        cursor: _,
-                        end_cursor: _,
-                        finality,
-                        batch,
-                    } => {
-                        if finality == DataFinality::DataStatusPending && !reached_pending_block {
+                Ok(Some(msg)) => match msg {
+                    DnaMessage::Data(data) => {
+                        const DATA_PRODUCTION_LIVE: i32 = 2;
+                        if !reached_live && data.production == DATA_PRODUCTION_LIVE {
                             tracing::info!("[🔍 Indexer] 🥳🎉 Reached pending block!");
-                            reached_pending_block = true;
+                            reached_live = true;
                         }
-                        for block in batch {
+
+                        for block_bytes in data.data {
+                            let block = Block::decode(block_bytes)?;
+                            let block_number =
+                                block.header.as_ref().map(|h| h.block_number).unwrap_or(0);
+
                             for event in block.events {
-                                if let Some(event) = event.event {
-                                    let block_number = match block.header.clone() {
-                                        Some(hdr) => hdr.block_number,
-                                        None => 0,
-                                    };
-                                    self.create_position_from_event(block_number, event).await?;
-                                }
+                                self.create_position_from_event(block_number, event).await?;
                             }
                         }
                     }
-                    apibara_sdk::DataMessage::Invalidate { cursor } => match cursor {
-                        Some(c) => {
-                            return Err(anyhow::anyhow!(
-                                "Received an invalidate request data at {}",
-                                &c.order_key
-                            ));
+                    DnaMessage::Invalidate(invalidated) => {
+                        if let Some(cursor) = invalidated.cursor {
+                            tracing::warn!(
+                                "[🔍 Indexer] Received invalidate at block {}",
+                                cursor.order_key
+                            );
                         }
-                        None => {
-                            return Err(anyhow::anyhow!(
-                                "Invalidate request without cursor provided"
-                            ));
-                        }
-                    },
-                    apibara_sdk::DataMessage::Heartbeat => {}
+                    }
+                    DnaMessage::Finalize(_)
+                    | DnaMessage::Heartbeat(_)
+                    | DnaMessage::SystemMessage(_) => {}
                 },
                 Ok(None) => continue,
                 Err(e) => {
-                    tracing::error!("[🔍 Indexer] Error while streaming, {}", e);
+                    tracing::error!("[🔍 Indexer] Error while streaming: {}", e);
                 }
             }
         }
     }
 
-    /// Index the provided event & creates a new position.
     async fn create_position_from_event(&mut self, block_number: u64, event: Event) -> Result<()> {
         if event.from_address.is_none() {
             return Ok(());
         }
 
-        let debt_address = apibara_field_as_felt(&event.keys[3]);
-        // Corresponds to event associated with the extension contract - we ignore them.
+        let keys: Vec<FieldElement> = event.keys.clone();
+        if keys.len() < 4 {
+            return Ok(());
+        }
+
+        let debt_address = apibara_field_as_felt(&keys[3]);
+        // Events from the extension contract have debt_address == 0 — ignore them.
         if debt_address == Felt::ZERO {
             return Ok(());
         }
 
-        // Create the new position & sends it to the monitoring service.
-        if let Some(new_position) = Position::from_event(&self.config, &event.keys) {
+        if let Some(new_position) = Position::from_event(&self.config, &keys) {
             let position_key = new_position.key();
             if self.seen_positions.insert(position_key) {
                 tracing::info!(
@@ -171,9 +177,8 @@ impl IndexerService {
                     block_number
                 );
             }
-            match self.positions_sender.send((block_number, new_position)) {
-                Ok(_) => {}
-                Err(e) => panic!("[🔍 Indexer] 😱 Could not send position: {}", e),
+            if let Err(e) = self.positions_sender.send((block_number, new_position)) {
+                panic!("[🔍 Indexer] 😱 Could not send position: {}", e);
             }
         } else {
             tracing::error!("Could not create position from event :/");

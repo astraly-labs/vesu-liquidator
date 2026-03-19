@@ -1,6 +1,6 @@
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
-use starknet::core::types::Felt;
+use starknet_rust::core::types::Felt;
 
 use crate::config::Config;
 
@@ -38,7 +38,7 @@ mod tests {
     use std::path::PathBuf;
 
     use bigdecimal::BigDecimal;
-    use starknet::core::types::Felt;
+    use starknet_rust::core::types::Felt;
 
     use crate::{cli::NetworkName, config::Config};
 

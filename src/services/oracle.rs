@@ -5,10 +5,10 @@ use anyhow::Result;
 use bigdecimal::BigDecimal;
 use dashmap::DashMap;
 use futures_util::future::join_all;
-use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall};
-use starknet::core::utils::{cairo_short_string_to_felt, get_selector_from_name};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider};
+use starknet_rust::core::types::{BlockId, BlockTag, Felt, FunctionCall};
+use starknet_rust::core::utils::{cairo_short_string_to_felt, get_selector_from_name};
+use starknet_rust::providers::jsonrpc::HttpTransport;
+use starknet_rust::providers::{JsonRpcClient, Provider};
 use tokio::task::JoinSet;
 
 use crate::config::Config;

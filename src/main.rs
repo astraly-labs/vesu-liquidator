@@ -1,4 +1,3 @@
-#[rustfmt::skip]
 pub mod bindings;
 pub mod cli;
 pub mod config;
@@ -11,7 +10,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use starknet::{
+use starknet_rust::{
     core::types::Felt,
     providers::{JsonRpcClient, jsonrpc::HttpTransport},
 };

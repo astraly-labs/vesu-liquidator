@@ -5,8 +5,8 @@ use anyhow::Result;
 use clap::ValueEnum;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use starknet::core::types::Felt;
-use starknet::core::utils::get_selector_from_name;
+use starknet_rust::core::types::Felt;
+use starknet_rust::core::utils::get_selector_from_name;
 
 use crate::cli::{NetworkName, RunCmd};
 

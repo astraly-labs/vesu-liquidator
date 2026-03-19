@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use anyhow::{Result, anyhow};
 use clap::Args;
-use starknet::core::types::Felt;
+use starknet_rust::core::types::Felt;
 
 fn parse_felt(s: &str) -> Result<Felt> {
     Felt::from_str(s).map_err(|_| anyhow!("Could not convert {s} to Felt"))

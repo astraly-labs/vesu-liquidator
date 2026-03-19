@@ -5,7 +5,7 @@ pub mod oracle;
 use std::{cmp, sync::Arc};
 
 use anyhow::Result;
-use starknet::providers::{JsonRpcClient, jsonrpc::HttpTransport};
+use starknet_rust::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 use tokio::sync::mpsc::unbounded_channel;
 
 use oracle::{LatestOraclePrices, OracleService};

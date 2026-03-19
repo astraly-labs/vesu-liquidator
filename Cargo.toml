@@ -1,6 +1,6 @@
 [package]
 name = "vesu-liquidator"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2024"
 license = "MIT"
 homepage = "https://www.vesu.xyz/"
@@ -10,36 +10,31 @@ readme = "README.md"
 keywords = ["vesu", "liquidator", "bot", "starknet"]
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1"
 async-trait = "0.1"
 bigdecimal = { version = "0.4", features = ["serde"] }
-cainome = { git = "https://github.com/cartridge-gg/cainome", rev = "cb41794", features = [
-  "abigen-rs",
-] }
-clap = { version = "4.5", features = ["derive", "env"] }
-colored = "2.1.0"
-dashmap = "6.1.0"
-dotenvy = "0.15.7"
-futures-util = "0.3.30"
-lazy_static = "1.5.0"
+clap = { version = "4", features = ["derive", "env"] }
+colored = "2"
+dashmap = "6"
+dotenvy = "0.15"
+futures-util = "0.3"
+lazy_static = "1.5"
+prost = "0.13"
+tonic = "0.14"
 reqwest = { version = "0.12", features = ["json"] }
-serde = "1.0"
-serde_json = "1.0"
+serde = "1"
+serde_json = "1"
 serde_yaml = "0.9"
-starknet = { version = "0.17.0" }
+starknet-rust = { version = "0.18.0" }
 strum = { version = "0.26", features = ["derive"] }
 tokio = { version = "1.40", features = ["full"] }
+tokio-stream = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = [
   "env-filter",
   "local-time",
 ] }
-url = "2.5"
+url = "2"
 
-apibara-core = { git = "https://github.com/apibara/dna", rev = "9caa385" }
-apibara-sdk = { git = "https://github.com/apibara/dna", rev = "9caa385" }
-
-[build-dependencies]
-cainome = { git = "https://github.com/cartridge-gg/cainome", rev = "cb41794", features = [
-  "abigen-rs",
-] }
+apibara-dna-protocol = "2"
+apibara-dna-sdk = { version = "2", features = ["starknet"] }

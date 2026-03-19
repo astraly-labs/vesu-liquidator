@@ -1,30 +1,27 @@
 use anyhow::{Result, anyhow};
-use apibara_core::starknet::v1alpha2::FieldElement;
+use apibara_dna_sdk::starknet::FieldElement;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use colored::Colorize;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use starknet::core::types::{BlockId, BlockTag, FunctionCall};
-use starknet::core::types::{Call, Felt};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider};
+use starknet_rust::core::types::{BlockId, BlockTag, Call, Felt, FunctionCall};
+use starknet_rust::providers::jsonrpc::HttpTransport;
+use starknet_rust::providers::{JsonRpcClient, Provider};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::bindings::liquidate::{Liquidate, LiquidateParams};
-
+use crate::bindings::liquidate::{LiquidateParams, build_liquidate_call};
 use crate::config::{
     Config, LIQUIDATION_CONFIG_SELECTOR, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
 };
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
+use crate::types::asset::Asset;
 use crate::utils::constants::{U256_ZERO, VESU_RESPONSE_DECIMALS};
+use crate::utils::conversions::apibara_field_as_felt;
 use crate::utils::ekubo::get_ekubo_route;
-use crate::{types::asset::Asset, utils::conversions::apibara_field_as_felt};
-
-use super::StarknetSingleOwnerAccount;
 
 /// Threshold for which we consider a position almost liquidable.
 const ALMOST_LIQUIDABLE_THRESHOLD: f64 = 0.01;
@@ -171,7 +168,6 @@ impl Position {
         );
     }
 
-    // TODO : put that in cache in a map with poolid/collateral/debt as key
     /// Fetches the liquidation factor from the extension contract
     pub async fn fetch_liquidation_factors(
         &self,
@@ -278,11 +274,10 @@ impl Position {
         hasher.finish()
     }
 
-    /// Returns the TX necessary to liquidate this position using the Vesu Liquidate
-    /// contract.
+    /// Returns the TX necessary to liquidate this position using the Vesu Liquidate contract.
     pub async fn get_vesu_liquidate_tx(
         &self,
-        liquidate_contract: &Arc<Liquidate<StarknetSingleOwnerAccount>>,
+        liquidate_address: &Felt,
         http_client: &reqwest::Client,
         liquidator_address: &Felt,
     ) -> Result<Call> {
@@ -296,10 +291,10 @@ impl Position {
 
         let liquidate_params = LiquidateParams {
             pool_id: self.pool_id,
-            collateral_asset: cainome::cairo_serde::ContractAddress(self.collateral.address),
-            debt_asset: cainome::cairo_serde::ContractAddress(self.debt.address),
-            user: cainome::cairo_serde::ContractAddress(self.user_address),
-            recipient: cainome::cairo_serde::ContractAddress(*liquidator_address),
+            collateral_asset: self.collateral.address,
+            debt_asset: self.debt.address,
+            user: self.user_address,
+            recipient: *liquidator_address,
             min_collateral_to_receive: U256_ZERO,
             debt_to_repay: U256_ZERO,
             liquidate_swap,
@@ -309,7 +304,7 @@ impl Position {
             withdraw_swap_limit_amount: 0,
             withdraw_swap_weights: vec![],
         };
-        Ok(liquidate_contract.liquidate_getcall(&liquidate_params))
+        Ok(build_liquidate_call(*liquidate_address, &liquidate_params))
     }
 
     /// Returns the position as a calldata for the LTV config RPC call.
