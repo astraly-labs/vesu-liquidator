@@ -1,6 +1,6 @@
 use starknet_rust::core::types::U256;
 
-use crate::bindings::liquidate::I129;
+use crate::types::cairo::I129;
 
 // Decimals are always 18 for vesu response
 pub const VESU_RESPONSE_DECIMALS: i64 = 18;

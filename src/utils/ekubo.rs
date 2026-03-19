@@ -4,7 +4,7 @@ use serde_json::Value;
 use starknet_rust::core::types::{Felt, U256};
 
 use crate::{
-    bindings::liquidate::{PoolKey, RouteNode, Swap, TokenAmount},
+    types::cairo::{PoolKey, RouteNode, Swap, TokenAmount},
     utils::constants::I129_ZERO,
 };
 

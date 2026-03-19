@@ -12,13 +12,13 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::bindings::liquidate::{LiquidateParams, build_liquidate_call};
 use crate::config::{
     Config, LIQUIDATION_CONFIG_SELECTOR, VESU_LTV_CONFIG_SELECTOR, VESU_POSITION_UNSAFE_SELECTOR,
 };
 use crate::services::oracle::LatestOraclePrices;
 use crate::storages::Storage;
 use crate::types::asset::Asset;
+use crate::types::cairo::{LiquidateParams, build_liquidate_call};
 use crate::utils::constants::{U256_ZERO, VESU_RESPONSE_DECIMALS};
 use crate::utils::conversions::apibara_field_as_felt;
 use crate::utils::ekubo::get_ekubo_route;

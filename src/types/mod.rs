@@ -4,6 +4,7 @@ use starknet_rust::providers::{JsonRpcClient, jsonrpc::HttpTransport};
 
 pub mod account;
 pub mod asset;
+pub mod cairo;
 pub mod position;
 
 pub type StarknetSingleOwnerAccount = Arc<
