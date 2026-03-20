@@ -192,32 +192,35 @@ impl Position {
         BigDecimal::new(ltv_config[0].to_bigint(), VESU_RESPONSE_DECIMALS)
     }
 
-    pub async fn update(
+    /// Update position from on-chain with bounded retries. Returns error if all attempts fail.
+    pub async fn try_update(
         &mut self,
         rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
         singleton_address: &Felt,
+        max_attempts: u32,
     ) -> anyhow::Result<()> {
-        const RETRY_DELAY: Duration = Duration::from_secs(2);
-        let mut attempt = 1;
+        const RETRY_DELAY: Duration = Duration::from_millis(500);
 
-        loop {
-            match self.try_update(rpc_client, singleton_address).await {
+        for attempt in 1..=max_attempts {
+            match self.do_update(rpc_client, singleton_address).await {
                 Ok(_) => return Ok(()),
-                Err(e) => {
-                    tracing::error!(
-                        "[🔭 Monitoring] Position 0x#{:x} update failed (attempt {}), likely due to RPC error: {}",
+                Err(e) if attempt < max_attempts => {
+                    tracing::warn!(
+                        "[🔭 Monitoring] Position #{:x} update failed (attempt {}/{}): {}",
                         self.key(),
                         attempt,
+                        max_attempts,
                         e
                     );
                     tokio::time::sleep(RETRY_DELAY).await;
-                    attempt += 1;
                 }
+                Err(e) => return Err(e),
             }
         }
+        unreachable!()
     }
 
-    async fn try_update(
+    async fn do_update(
         &mut self,
         rpc_client: &Arc<JsonRpcClient<HttpTransport>>,
         singleton_address: &Felt,

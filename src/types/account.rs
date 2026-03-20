@@ -18,6 +18,10 @@ use crate::{
     utils::constants::VESU_RESPONSE_DECIMALS,
 };
 
+/// Gas multiplier applied to fee estimates to ensure fast inclusion.
+/// 1.5x gives us priority over bots using default gas.
+const GAS_ESTIMATE_MULTIPLIER: f64 = 1.5;
+
 pub struct StarknetAccount(
     pub Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>,
 );
@@ -64,8 +68,28 @@ impl StarknetAccount {
         ))
     }
 
-    /// Executes a set of transactions and returns the transaction hash.
+    /// Executes a set of transactions with boosted gas for priority inclusion.
     pub async fn execute_txs(&self, txs: &[Call]) -> Result<Felt> {
+        // First estimate, then send with boosted gas for priority
+        let estimation = self.0.execute_v3(txs.to_vec()).estimate_fee().await?;
+
+        let boosted_gas = (estimation.l1_gas_consumed as f64 * GAS_ESTIMATE_MULTIPLIER) as u64;
+        let boosted_gas_price = (estimation.l1_gas_price as f64 * GAS_ESTIMATE_MULTIPLIER) as u128;
+
+        let res = self
+            .0
+            .execute_v3(txs.to_vec())
+            .l1_gas(boosted_gas)
+            .l1_gas_price(boosted_gas_price)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!(format!("{:?}", e)))?;
+        Ok(res.transaction_hash)
+    }
+
+    /// Executes a set of transactions with no fee estimation (fastest path).
+    /// Use when you need absolute minimum latency and are OK with default gas.
+    pub async fn execute_txs_no_estimate(&self, txs: &[Call]) -> Result<Felt> {
         let res = self
             .0
             .execute_v3(txs.to_vec())

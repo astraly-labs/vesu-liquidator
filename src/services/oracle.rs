@@ -85,7 +85,7 @@ impl OracleService {
     /// Starts the oracle service that will fetch the latest oracle prices every
     /// PRICES_UPDATE_INTERVAL seconds.
     pub async fn run_forever(self) -> Result<()> {
-        const PRICES_UPDATE_INTERVAL: u64 = 3;
+        const PRICES_UPDATE_INTERVAL: u64 = 1;
         let sleep_duration = Duration::from_secs(PRICES_UPDATE_INTERVAL);
         loop {
             self.update_prices().await?;
